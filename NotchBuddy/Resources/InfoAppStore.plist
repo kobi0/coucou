@@ -33,6 +33,10 @@
 	</dict>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Coucou listens only while you hold the mic button, to turn your voice into a message for the assistant.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Coucou turns your voice into text on this Mac. The audio is not sent anywhere.</string>
 	<key>NSSupportsAutomaticGraphicsSwitching</key>
 	<true/>
 </dict>

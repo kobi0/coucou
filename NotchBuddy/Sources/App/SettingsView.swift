@@ -647,6 +647,22 @@ struct SettingsView: View {
             .padding(6)
         }
 
+        GroupBox("Voice") {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Assistant language", selection: $state.assistantLanguage) {
+                    ForEach(VoiceLanguage.allCases, id: \.self) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                Toggle("Read replies aloud", isOn: $state.speakReplies)
+                Toggle("Send straight away when I let go of the mic", isOn: $state.voiceAutoSend)
+                Text("Hold the mic button next to the chat box to talk. It listens only while you hold it, and speech is recognised on this Mac, never sent to Apple's servers. Saying yes aloud never approves an action: only the Allow button does. Nigerian Pidgin wording is a first draft that a native speaker should review, and an English voice reads it.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .padding(6)
+        }
+
         GroupBox("Chat — other providers") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("To use Google Gemini or OpenAI from the chat. Keys are stored in the Keychain.")

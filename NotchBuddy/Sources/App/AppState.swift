@@ -330,6 +330,21 @@ final class AppState: ObservableObject {
     }
     @Published var assistant = AssistantSession()
 
+    // Voice: the assistant's language, reading replies aloud, and push-to-talk.
+    @Published var assistantLanguage: VoiceLanguage = .english {
+        didSet { UserDefaults.standard.set(assistantLanguage.rawValue, forKey: "assistantLanguage") }
+    }
+    @Published var speakReplies: Bool = false {
+        didSet { UserDefaults.standard.set(speakReplies, forKey: "speakReplies") }
+    }
+    /// Send what was heard straight away. When off, it lands in the text box to be checked first.
+    @Published var voiceAutoSend: Bool = true {
+        didSet { UserDefaults.standard.set(voiceAutoSend, forKey: "voiceAutoSend") }
+    }
+    @Published var voice = VoiceSession()
+    /// Words heard while "send straight away" is off. The chat box takes them and clears this.
+    @Published var voiceDraft: String? = nil
+
     // Pending approval request from Claude Code hook
     @Published var pendingApproval: ApprovalInfo? = nil
 
@@ -416,6 +431,9 @@ final class AppState: ObservableObject {
            !v.trimmingCharacters(in: .whitespaces).isEmpty { claudeModel = v }
         if let v = ud.string(forKey: "chatProvider"), let p = ChatProvider(rawValue: v) { chatProvider = p }
         assistantTools = ud.bool(forKey: "assistantToolsEnabled")
+        if let v = ud.string(forKey: "assistantLanguage"), let l = VoiceLanguage(rawValue: v) { assistantLanguage = l }
+        speakReplies = ud.bool(forKey: "speakReplies")
+        if let v = ud.object(forKey: "voiceAutoSend") as? Bool { voiceAutoSend = v }
         if let v = ud.string(forKey: "googleChatModel"), !v.isEmpty { googleChatModel = v }
         if let v = ud.string(forKey: "openAIChatModel"), !v.isEmpty { openAIChatModel = v }
         if let v = ud.string(forKey: "ollamaChatModel"), !v.isEmpty { ollamaChatModel = v }

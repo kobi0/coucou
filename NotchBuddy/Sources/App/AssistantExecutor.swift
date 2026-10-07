@@ -95,7 +95,8 @@ enum AssistantFlow {
                 state.assistant.finish(useId: useId, ok: result.ok, message: result.message, now: Date())
                 say(result.message, state: state)
             case .waiting:
-                break
+                // Saying yes aloud does not approve anything. Point to the card, after the reply has been read.
+                VoiceFlow.speakPhrase(.checkTheCard, state: state)
             case .refused(_, let reason):
                 say("I did not do that. \(reason)", state: state)
             }

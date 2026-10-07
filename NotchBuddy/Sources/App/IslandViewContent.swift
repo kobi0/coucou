@@ -1198,11 +1198,15 @@ struct PromptView: View {
                 .padding(.horizontal, 10)
 
                 HStack(spacing: 8) {
-                    TextField(state.chatHistory.isEmpty ? "Ask me anything…" : "Continue…", text: $text)
+                    TextField(placeholderText, text: $text)
                         .textFieldStyle(.plain)
                         .font(.system(size: 13))
                         .focused($focused)
                         .onSubmit { sendMessage() }
+
+                    if VoiceFlow.inputAvailable {
+                        MicHoldButton(state: state)
+                    }
 
                     Button(action: sendMessage) {
                         Image(systemName: "arrow.up")
@@ -1235,6 +1239,12 @@ struct PromptView: View {
                 state.fetchModelsIfNeeded(for: provider)
             }
         }
+        .onChange(of: state.voiceDraft) { _, draft in
+            guard let draft else { return }
+            text = draft
+            state.voiceDraft = nil
+            focused = true
+        }
         .onReceive(NotificationCenter.default.publisher(for: .islandSendMessage)) { _ in
             guard state.view == .prompt else { return }
             sendMessage()
@@ -1246,6 +1256,14 @@ struct PromptView: View {
             ClaudeService.shared.clearConversation()
             focused = true
         }
+    }
+
+    /// While the mic button is held, the words heard so far show where the person types.
+    private var placeholderText: String {
+        if state.voice.state == .listening {
+            return state.voice.partial.isEmpty ? state.assistantLanguage.phrase(.listening) : state.voice.partial
+        }
+        return state.chatHistory.isEmpty ? "Ask me anything…" : "Continue…"
     }
 
     private func sendMessage() {

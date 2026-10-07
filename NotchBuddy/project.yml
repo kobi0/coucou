@@ -133,6 +133,8 @@ targets:
         NSSupportsAutomaticGraphicsSwitching: YES
         NSAppleEventsUsageDescription: "Pour sauter au terminal, envoyer des mails et piloter Musique."
         NSAccessibilityUsageDescription: "Pour lire le titre de la fenêtre active et l'attacher comme contexte."
+        NSMicrophoneUsageDescription: "Coucou listens only while you hold the mic button, to turn your voice into a message for the assistant."
+        NSSpeechRecognitionUsageDescription: "Coucou turns your voice into text on this Mac. The audio is not sent anywhere."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:
@@ -187,6 +189,8 @@ targets:
         NSSupportsAutomaticGraphicsSwitching: YES
         LSApplicationCategoryType: public.app-category.developer-tools
         ITSAppUsesNonExemptEncryption: NO
+        NSMicrophoneUsageDescription: "Coucou listens only while you hold the mic button, to turn your voice into a message for the assistant."
+        NSSpeechRecognitionUsageDescription: "Coucou turns your voice into text on this Mac. The audio is not sent anywhere."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
     settings:
