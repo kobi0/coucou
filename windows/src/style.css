@@ -1365,3 +1365,94 @@ input[type="range"]::-webkit-slider-thumb {
 .int-card.detail {
   padding-top: 8px;
 }
+
+
+/* ── Assistant action card (over the chat) ──────────────────────────────── */
+
+.action-card {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 76px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px 12px 12px;
+  background: rgba(14, 15, 17, 0.97);
+  border-radius: 0 0 14px 0;
+}
+
+.action-card[hidden] {
+  display: none;
+}
+
+.ac-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ac-title {
+  font: 600 13px var(--font);
+  color: var(--ink);
+}
+
+.ac-count {
+  font: 400 11px var(--font);
+  color: var(--dim-3);
+}
+
+.ac-warn {
+  font: 500 11px/1.35 var(--font);
+  color: var(--amber);
+  background: rgba(245, 165, 36, 0.1);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.ac-lines {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.ac-label {
+  font: 500 10.5px var(--font);
+  color: var(--dim-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ac-value {
+  font: 400 12.5px/1.35 var(--font);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.ac-value.quoted {
+  color: #b0b5be;
+  border-left: 2px solid rgba(255, 255, 255, 0.16);
+  padding-left: 8px;
+}
+
+.ac-hidden {
+  font: 400 11px var(--font);
+  color: var(--dim-3);
+  font-style: italic;
+}
+
+.ac-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

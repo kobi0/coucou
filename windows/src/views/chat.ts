@@ -6,6 +6,7 @@ import { ICONS } from "./icons";
 import { Bridge, type ChatContext } from "../core/bridge";
 import { Sound } from "../core/sound";
 import { State, type ChatMessage } from "../core/state";
+import { buildActionCard } from "./action-card";
 import type { ViewHost } from "./views";
 
 let nextId = 1;
@@ -48,15 +49,51 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   const send = h("button", { class: "send-btn", title: "Send" }, svg(ICONS.arrowUp, 11));
   const bar = h("div", { class: "chat-bar" }, input, send);
 
+  // Lines written by the app (never by the model) go in as assistant messages.
+  function say(lines: string[]) {
+    for (const line of lines) {
+      if (line) State.chatHistory.push({ id: nextId++, role: "assistant", content: line });
+    }
+  }
+
+  const actionCard = buildActionCard({
+    allow: (id) => void allow(id),
+    deny: (id) => void deny(id),
+  });
+
   const el = h(
     "div",
     { class: "view" },
-    h("div", { class: "card wash chat-card" }, h("div", { class: "chat-body" }, chipRow, log, bar)),
+    h("div", { class: "card wash chat-card" }, h("div", { class: "chat-body" }, chipRow, log, bar, actionCard.el)),
   );
   (el.querySelector(".card") as HTMLElement).style.setProperty("--wash", "rgba(99,102,241,0.5)");
 
   let sending = false;
   let renderedCount = -1;
+  let expiryTimer: number | undefined;
+
+  async function allow(id: number) {
+    try {
+      const reply = await Bridge.assistantApprove(id);
+      State.pendingActions = reply.actions;
+      say(reply.status === "rejected" ? [reply.message] : reply.notices);
+      if (reply.status === "done") Sound.play("approve");
+    } catch (err) {
+      say([String(err).replace(/^Error:\s*/, "")]);
+    }
+    State.notify();
+    onHeightChange();
+  }
+
+  async function deny(id: number) {
+    try {
+      State.pendingActions = await Bridge.assistantDeny(id);
+    } catch (err) {
+      say([String(err).replace(/^Error:\s*/, "")]);
+    }
+    State.notify();
+    onHeightChange();
+  }
 
   async function submit() {
     const query = input.value.trim();
@@ -76,7 +113,9 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
 
     try {
       const reply = await Bridge.chatSend(query, context);
-      State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+      if (reply.text) State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+      say(reply.notices);
+      State.pendingActions = reply.actions;
       State.stateOverride = null;
       Sound.play("finish");
     } catch (err) {
@@ -124,6 +163,15 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
 
       input.placeholder = State.chatHistory.length === 0 ? "Ask me anything…" : "Continue…";
       input.disabled = sending;
+
+      const nowSeconds = Date.now() / 1000;
+      actionCard.sync(State.pendingActions, nowSeconds);
+      // A card that nobody answers disappears when it expires.
+      window.clearTimeout(expiryTimer);
+      const soonest = Math.min(...State.pendingActions.map((a) => a.expiresAt));
+      if (Number.isFinite(soonest)) {
+        expiryTimer = window.setTimeout(() => State.notify(), Math.max(250, (soonest - nowSeconds) * 1000 + 100));
+      }
     },
     focus() {
       input.focus();

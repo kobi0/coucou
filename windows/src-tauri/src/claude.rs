@@ -6,10 +6,12 @@
 
 use std::sync::Mutex;
 
+use coucou_assistant::{AssistantSession, PendingView};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tauri::AppHandle;
 
-use crate::secrets;
+use crate::{assistant, secrets};
 
 const ENDPOINT: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
@@ -31,6 +33,8 @@ No markdown formatting (no **, no ##, no bullet dashes). Use plain text with lin
 pub struct Chat {
     /// Full multi-turn history, including tool_use / tool_result blocks.
     messages: Mutex<Vec<Value>>,
+    /// The ledger of assistant actions for this conversation (see assistant.rs).
+    pub(crate) assistant: Mutex<AssistantSession>,
 }
 
 impl Chat {
@@ -66,24 +70,38 @@ pub enum ChatContext {
 #[serde(rename_all = "camelCase")]
 pub struct ChatReply {
     pub text: String,
+    /// Lines written by the app, such as "A draft to … is open in your mail app". Never model text.
+    pub notices: Vec<String>,
+    /// Every confirmation card now waiting for a click.
+    pub actions: Vec<PendingView>,
 }
 
 /// One chat turn. Returns the assistant's text, or a message the island shows
 /// in the note view.
 pub async fn send(
+    app: &AppHandle,
     chat: &Chat,
     model: &str,
     query: String,
     context: Option<ChatContext>,
+    assistant_setting: bool,
 ) -> Result<ChatReply, String> {
     let key = secrets::get("anthropic-api-key")
         .ok_or_else(|| "API key missing. Open settings.".to_string())?;
 
     let mut content: Vec<Value> = Vec::new();
 
+    // Assistant actions are on, or this conversation already used them.
+    let tools_on = assistant::tools_on(chat, assistant_setting);
+
     // File / window context rides along with the first message only, exactly
     // like ClaudeService.chat().
     if chat.is_empty() {
+        // A file or window is outside content. Anything the model asks for after reading it must be checked,
+        // even if the switch for actions is turned on later in the same conversation.
+        if context.is_some() {
+            assistant::note_outside_content(chat);
+        }
         match &context {
             Some(ChatContext::File { name, path }) => {
                 if let Some(block) = file_block(path) {
@@ -103,13 +121,24 @@ pub async fn send(
     }
     content.push(json!({ "type": "text", "text": query }));
 
+    let mut tools = vec![json!({ "type": "web_search_20260209", "name": "web_search", "max_uses": 5 })];
+    let mut system = SYSTEM_PROMPT.to_string();
+    if tools_on {
+        // The model must be answered about every tool call it made, before anything else in this message.
+        let mut lead = assistant::feedback_blocks(chat);
+        lead.append(&mut content);
+        content = lead;
+        tools.extend(assistant::tool_definitions(chat));
+        system.push_str(&assistant::tools_prompt());
+    }
+
     chat.push(json!({ "role": "user", "content": content }));
 
     let body = json!({
         "model": model,
         "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "tools": [{ "type": "web_search_20260209", "name": "web_search", "max_uses": 5 }],
+        "system": system,
+        "tools": tools,
         "fallbacks": "default",
         "messages": chat.snapshot(),
     });
@@ -138,9 +167,17 @@ pub async fn send(
         return Err("Unexpected API response.".into());
     };
 
+    // The request went through, so the answers it carried are not offered again.
+    if tools_on {
+        assistant::feedback_sent(chat);
+    }
+
     // Store the whole content — tool_use / tool_result blocks included — so the
     // next turn has the right context.
     chat.push(json!({ "role": "assistant", "content": blocks.clone() }));
+
+    // Safe tool calls run now, the rest wait for a click on a card.
+    let turn = assistant::handle_reply(app, chat, &blocks, tools_on);
 
     let text = blocks
         .iter()
@@ -151,10 +188,10 @@ pub async fn send(
         .trim()
         .to_string();
 
-    if text.is_empty() {
+    if text.is_empty() && turn.notices.is_empty() && turn.actions.is_empty() {
         return Err("No response text.".into());
     }
-    Ok(ChatReply { text })
+    Ok(ChatReply { text, notices: turn.notices, actions: turn.actions })
 }
 
 async fn call(key: &str, body: &Value) -> Result<Value, String> {

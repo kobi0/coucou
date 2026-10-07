@@ -20,6 +20,9 @@ pub struct Settings {
     /// Defaulted explicitly so a settings.json written by an older build still loads.
     #[serde(default = "default_model")]
     pub model: String,
+    /// Lets the chat prepare emails and set reminders, each behind a card the user must click. Off by default.
+    #[serde(default)]
+    pub assistant_tools: bool,
 }
 
 fn default_model() -> String {
@@ -43,6 +46,7 @@ impl Default for Settings {
             autostart: false,
             hooks_installed: false,
             model: default_model(),
+            assistant_tools: false,
         }
     }
 }

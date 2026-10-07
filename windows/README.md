@@ -77,6 +77,26 @@ only ask whether a key exists. Same for every integration key.
 No telemetry. The only network requests Coucou makes are to the services you
 configure yourself.
 
+### Assistant actions (off by default)
+
+**Settings → Assistant actions** lets the chat prepare an email draft and set a
+reminder. The rule: it may draft on its own, but anything that sends or schedules
+waits for a card you click.
+
+- A draft opens in your own mail app. Nothing is sent from Coucou.
+- A reminder shows on the island at its time, while Coucou is running. There is no
+  system scheduler behind it: a reminder that came due while Coucou was closed
+  shows once, marked as missed, the next time it starts.
+- Only a mouse click on **Allow** approves. Saying yes, typing yes, or anything the
+  model writes does not. Once a file, window or web search has entered a
+  conversation, every later action in it asks first until you reset the chat.
+- What was done is logged to `assistant-activity.jsonl` next to the log below,
+  without reminder titles, subjects or message text. Reminders wait in
+  `reminders.json` in the same folder.
+
+The rules live in `assistant/` (a plain Rust crate, tested on its own) and follow
+the Swift version on the Mac.
+
 ## Build it yourself
 
 You need [Rust](https://rustup.rs), [Node 20+](https://nodejs.org), and the
@@ -128,6 +148,7 @@ windows/
     settings/          the settings window
   src-tauri/           Rust backend: window, named pipe, Claude API, pollers
   hook/                coucou-hook.exe, the Claude Code relay
+  assistant/           assistant rules: policy, confirmation card, session (pure Rust, no UI)
   scripts/             icon generator
 ```
 

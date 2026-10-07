@@ -389,6 +389,7 @@ export class Island {
     State.droppedFile = { name, path };
     State.promptContext = { kind: "file", name, path };
     State.chatHistory = [];
+    State.pendingActions = [];
     void Bridge.chatReset();
 
     UploadSeq.performDrop(State.uploadDuration);

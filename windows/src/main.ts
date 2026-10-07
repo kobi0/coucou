@@ -51,6 +51,14 @@ async function main() {
     }
   });
 
+  // A reminder the assistant set has come due. The text is written by the app.
+  await onEvent<{ text: string }>("assistant-notice", ({ text }) => {
+    if (State.paused) return;
+    State.noteMessage = text;
+    Sound.play("finish");
+    island.alert("note");
+  });
+
   await onEvent<null>("screen-changed", () => void Bridge.reposition());
 
   // The settings window writes preferences; apply them here without a restart.

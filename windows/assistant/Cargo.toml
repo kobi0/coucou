@@ -1,0 +1,12 @@
+[package]
+name = "coucou-assistant"
+description = "Coucou assistant core: tool risk tiers, click-only approval, strict parsers and the activity log. No UI, no network, no Tauri, so it can be tested anywhere."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+time = { version = "0.3", default-features = false, features = ["std", "parsing"] }
+unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }

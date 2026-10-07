@@ -1,5 +1,6 @@
 // Coucou for Windows — app wiring and the commands the island calls.
 
+mod assistant;
 mod claude;
 mod files;
 mod hooks;
@@ -236,17 +237,23 @@ fn approval_decline(app: AppHandle, request_id: String) {
 /// One chat turn. The API key and any file bytes stay on the Rust side.
 #[tauri::command]
 async fn chat_send(
+    app: AppHandle,
     shared: State<'_, Shared>,
     chat: State<'_, Chat>,
     query: String,
     context: Option<ChatContext>,
 ) -> Result<ChatReply, String> {
-    let model = shared.settings.lock().unwrap().model.clone();
-    claude::send(&chat, &model, query, context).await
+    let (model, assistant_on) = {
+        let settings = shared.settings.lock().unwrap();
+        (settings.model.clone(), settings.assistant_tools)
+    };
+    claude::send(&app, &chat, &model, query, context, assistant_on).await
 }
 
 #[tauri::command]
 fn chat_reset(chat: State<Chat>) {
+    // Anything still waiting for a click is dropped and logged as declined.
+    assistant::end_conversation(&chat);
     chat.reset();
 }
 
@@ -374,6 +381,7 @@ pub fn run() {
         })
         .manage(Pending::default())
         .manage(Chat::default())
+        .manage(assistant::Reminders::default())
         .invoke_handler(tauri::generate_handler![
             boot,
             save_settings,
@@ -393,6 +401,9 @@ pub fn run() {
             log_line,
             chat_send,
             chat_reset,
+            assistant::assistant_pending,
+            assistant::assistant_approve,
+            assistant::assistant_deny,
             ingest_file,
             secret_present,
             secret_set,
@@ -426,6 +437,7 @@ pub fn run() {
             hooks::ensure_hook_exe(&handle);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
+            assistant::start_reminders(&handle);
             Ok(())
         })
         .run(tauri::generate_context!())

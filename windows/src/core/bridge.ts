@@ -5,7 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { Settings } from "./state";
+import type { PendingAction, Settings } from "./state";
 
 export const IS_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -83,8 +83,18 @@ export const Bridge = {
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */
   chatSend: (query: string, context: ChatContext | null) =>
-    callOrThrow<{ text: string }>("chat_send", { query, context }),
+    callOrThrow<ChatReply>("chat_send", { query, context }),
   chatReset: () => call<void>("chat_reset"),
+
+  // ── Assistant actions ─────────────────────────────────────────────────────
+  /** Cards still waiting for a click. */
+  assistantPending: () => call<PendingAction[]>("assistant_pending"),
+  /**
+   * The Allow button. Rust treats this as the one and only way to approve, so it is
+   * called from a trusted click and nowhere else.
+   */
+  assistantApprove: (id: number) => callOrThrow<ApproveReply>("assistant_approve", { id }),
+  assistantDeny: (id: number) => callOrThrow<PendingAction[]>("assistant_deny", { id }),
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
   /** Only ever tells you whether a key exists — never its value. */
@@ -100,6 +110,21 @@ export const Bridge = {
   /** Tray → Pause. Stops the integration pollers, not just the island. */
   setPaused: (paused: boolean) => call<void>("set_paused", { paused }),
 };
+
+/** What one chat turn hands back: the model's words, lines the app wrote, and the cards now waiting. */
+export interface ChatReply {
+  text: string;
+  /** Written by the app, never by the model. Shown as assistant lines. */
+  notices: string[];
+  actions: PendingAction[];
+}
+
+export interface ApproveReply {
+  status: "done" | "needsSecondClick" | "rejected";
+  message: string;
+  notices: string[];
+  actions: PendingAction[];
+}
 
 export interface IntegrationUpdate {
   id: string;

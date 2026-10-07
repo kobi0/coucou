@@ -28,6 +28,31 @@ export interface ApprovalInfo {
   command: string;
 }
 
+/** One line of a confirmation card. The label is fixed text from the app. */
+export interface CardLine {
+  label: string;
+  value: string;
+  kind: "text" | "content" | "dateTime";
+  /** Characters cut from `value` to fit. Zero when all of it is shown. */
+  hiddenCharacters: number;
+  /** For a dateTime line: the same moment as ISO 8601 text in UTC. */
+  iso?: string;
+}
+
+/** A proposed action waiting for a click. Built by Rust from fixed labels, never from model text. */
+export interface PendingAction {
+  id: number;
+  card: {
+    title: string;
+    risk: "read" | "draft" | "act" | "critical";
+    lines: CardLine[];
+    fromUntrustedContent: boolean;
+    needsSecondClick: boolean;
+  };
+  /** Seconds since 1970. */
+  expiresAt: number;
+}
+
 export interface ChatMessage {
   id: number;
   role: "user" | "assistant";
@@ -92,6 +117,8 @@ export interface Settings {
   hooksInstalled: boolean;
   /** Claude model used by the chat. */
   model: string;
+  /** Lets the chat prepare emails and set reminders, each behind a card the user must click. */
+  assistantTools: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -106,6 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   hooksInstalled: false,
   model: "claude-opus-5",
+  assistantTools: false,
 };
 
 type Listener = () => void;
@@ -136,6 +164,8 @@ class AppState {
   noteMessage: string | null = null;
   searchResult: SearchResult | null = null;
   chatHistory: ChatMessage[] = [];
+  /** Cards waiting for a click, from the last reply or approval. */
+  pendingActions: PendingAction[] = [];
   pendingApproval: ApprovalInfo | null = null;
 
   integrations: Record<string, IntegrationInfo> = {};

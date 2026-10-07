@@ -414,6 +414,14 @@ function generalSection(): HTMLElement {
       h("label", { text: "Launch at startup" }),
       toggle(settings.autostart, (v) => { settings.autostart = v; void save(); }),
     ),
+    h("div", { class: "row" },
+      h("label", { text: "Assistant actions" }),
+      toggle(settings.assistantTools, (v) => { settings.assistantTools = v; void save(); }),
+      h("span", {
+        class: "hint",
+        text: "Lets the chat draft emails and set reminders. Every action waits for your click on a card.",
+      }),
+    ),
   );
 }
 
