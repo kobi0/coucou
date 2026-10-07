@@ -254,8 +254,9 @@ final class ClaudeService {
 
         // Add file/window context on first message only
         if conversationMessages.isEmpty, let context = context {
-            // A file or window is outside content. Anything the model asks for after reading it must be checked.
-            if toolsOn { state.assistant.noteOutsideContent() }
+            // A file or window is outside content. Anything the model asks for after reading it must be checked,
+            // even if assistant actions are switched on later in the same conversation.
+            state.assistant.noteOutsideContent()
             switch context {
             case .window(let app, let title, let url):
                 var text = "Context — App: \(app), Window: \(title)"
@@ -580,8 +581,12 @@ final class ClaudeService {
         conversationMessages.append(["role": "assistant", "content": content])
 
         // Tool calls are only read while assistant actions are on (or already in use in this conversation).
-        let turn = (state.assistantTools || state.assistant.hasToolHistory)
-            ? ToolCallExtractor.extract(content: content) : ExtractedTurn.empty
+        let toolsActive = state.assistantTools || state.assistant.hasToolHistory
+        let turn = toolsActive ? ToolCallExtractor.extract(content: content) : ExtractedTurn.empty
+        if !toolsActive, ToolCallExtractor.extract(content: content).sawOutsideContent {
+            // No tools were offered, but search results in this reply are in the model's memory now.
+            state.assistant.noteOutsideContent()
+        }
 
         let text = (content.first(where: { $0["type"] as? String == "text" })?["text"] as? String) ?? ""
         if text.isEmpty && turn.calls.isEmpty {
