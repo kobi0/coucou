@@ -126,6 +126,11 @@ enum ActionPolicy {
     /// "Wed 7 Oct 2026, 16:00 (GMT+1)". Nil when the text is not a valid ISO 8601 moment.
     static func localDateTime(fromISO iso: String, timeZone: TimeZone) -> String? {
         guard let date = ReminderParser.parseISO8601(iso) else { return nil }
+        return localDateTime(date, timeZone: timeZone)
+    }
+
+    /// A moment written the way the user will read it, in their own time zone.
+    static func localDateTime(_ date: Date, timeZone: TimeZone) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timeZone

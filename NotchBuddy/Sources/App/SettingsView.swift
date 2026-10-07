@@ -637,6 +637,16 @@ struct SettingsView: View {
             .padding(6)
         }
 
+        GroupBox("Assistant actions") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Let Claude prepare reminders and email drafts", isOn: $state.assistantTools)
+                Text("Claude chat only. Nothing happens until you click Allow on a card. A reminder shows as a notification, and an email opens as a draft in your mail app. Nothing is ever sent for you. A short local record of what happened is kept in ~/Library/Logs/NotchBuddy.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .padding(6)
+        }
+
         GroupBox("Chat — other providers") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("To use Google Gemini or OpenAI from the chat. Keys are stored in the Keychain.")

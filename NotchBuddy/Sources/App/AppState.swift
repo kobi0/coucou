@@ -324,6 +324,12 @@ final class AppState: ObservableObject {
     // Chat conversation history
     @Published var chatHistory: [ChatMessage] = []
 
+    // Assistant actions (reminders, email drafts) in the Claude chat. Off until the user turns it on in Settings.
+    @Published var assistantTools: Bool = false {
+        didSet { UserDefaults.standard.set(assistantTools, forKey: "assistantToolsEnabled") }
+    }
+    @Published var assistant = AssistantSession()
+
     // Pending approval request from Claude Code hook
     @Published var pendingApproval: ApprovalInfo? = nil
 
@@ -409,6 +415,7 @@ final class AppState: ObservableObject {
         if let v = ud.string(forKey: "claudeModel"),
            !v.trimmingCharacters(in: .whitespaces).isEmpty { claudeModel = v }
         if let v = ud.string(forKey: "chatProvider"), let p = ChatProvider(rawValue: v) { chatProvider = p }
+        assistantTools = ud.bool(forKey: "assistantToolsEnabled")
         if let v = ud.string(forKey: "googleChatModel"), !v.isEmpty { googleChatModel = v }
         if let v = ud.string(forKey: "openAIChatModel"), !v.isEmpty { openAIChatModel = v }
         if let v = ud.string(forKey: "ollamaChatModel"), !v.isEmpty { ollamaChatModel = v }

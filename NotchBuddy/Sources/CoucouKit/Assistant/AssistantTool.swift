@@ -60,6 +60,11 @@ struct ToolSpec: Sendable, Equatable {
     /// What the confirmation card shows, in order. For tools that ask, every argument must have a field, or
     /// the call is refused: nothing runs that the card did not show.
     let fields: [ToolField]
+    /// One sentence that tells the model what the tool does and when to use it. Sent to the model only. It is
+    /// never shown on a card, and it never changes the risk level or the card.
+    var summary: String = ""
+    /// Short help for each argument, keyed by argument name. Sent to the model only.
+    var argumentHelp: [String: String] = [:]
 }
 
 /// A tool call the assistant wants to make.

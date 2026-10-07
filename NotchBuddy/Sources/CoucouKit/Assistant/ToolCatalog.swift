@@ -18,6 +18,12 @@ enum ToolCatalog {
             ToolField(label: "Reminder", argument: "title", isContent: true),
             ToolField(label: "When", argument: "due", isDateTime: true, isLogged: true),
             ToolField(label: "Notes", argument: "notes", isContent: true)
+        ],
+        summary: "Set a reminder that shows as a notification at a given time.",
+        argumentHelp: [
+            "title": "What to be reminded about, in the user's language.",
+            "due": "When, as ISO 8601 date and time with a time zone offset, for example 2026-10-07T16:00:00+01:00.",
+            "notes": "Optional extra detail."
         ]
     )
 
@@ -32,6 +38,12 @@ enum ToolCatalog {
             ToolField(label: "To", argument: "to", isLogged: true),
             ToolField(label: "Subject", argument: "subject", isContent: true),
             ToolField(label: "Message", argument: "body", isContent: true)
+        ],
+        summary: "Open a draft email in the user's mail app for them to read and send themselves.",
+        argumentHelp: [
+            "to": "One full email address, for example name@example.com. Never guess an address.",
+            "subject": "A single line.",
+            "body": "The whole message, written in the language the user wants."
         ]
     )
 

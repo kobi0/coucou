@@ -1222,6 +1222,7 @@ struct PromptView: View {
             .padding(.top, 12)
             .padding(.bottom, 14)
         }
+        .overlay { AssistantActionOverlay(state: state) }
         .padding(.bottom, 10)
         .onAppear { focused = true }
         .onChange(of: state.view) { _, view in
