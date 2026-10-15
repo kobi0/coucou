@@ -282,6 +282,58 @@ once; the key never is.
 No telemetry. The only network requests Coucou makes are to the services you
 configure yourself.
 
+### Voice and language
+
+**Settings → Assistant language** switches the chat between English and Nigerian
+Pidgin (a first draft that still needs a native speaker's review). Tool details such
+as email addresses and times stay exact in either.
+
+- **Read replies aloud** uses a voice installed on this computer. A voice that
+  sends text to a server (the "online" or "natural" ones Edge also lists) is never
+  used. If no local voice matches, nothing is said.
+- **Hold to talk** hears on this computer only, with the speech model Flow dictation
+  already uses (Parakeet). Hold the mic, speak, let go: the words go to the chat box
+  or are sent, as you choose. Your voice is never sent anywhere and never saved. What
+  is heard is only text: it can never approve an action. The mic stays hidden until the
+  model is downloaded (in Flow's settings, on your click, as for dictation); reopen the
+  chat after that. Both the English and Pidgin assistants are heard as English.
+- **Gemini Live voice (opt-in).** **Settings → Voice engine → Gemini Live (online)**
+  makes the mic talk to Google's Gemini Live, which listens and answers in its own
+  voice, in English or Nigerian Pidgin as set under Assistant language. It is the
+  only choice that sends your voice anywhere: **while you hold the mic, what you say
+  goes to Google.** It needs a Gemini API key from Google AI Studio, saved in the
+  Windows Credential Manager and never in the page. The mic still opens only while
+  you hold it (Gemini is told when you start and stop). The conversation has no
+  tools: it can talk but cannot send an email or set a reminder, and its words are
+  shown in the chat as plain text. The model is `gemini-3.8-live`; if Google retires
+  it, put another in `settings.json` as `geminiLiveModel`. A Gemini session also
+  closes by itself after two quiet minutes.
+  This was written from Google's published reference and tested against a stand-in
+  server, not yet against the real service.
+- The hold-to-talk rules (a tap is dropped, a minute is the longest, silence gives a
+  hint, never a message) are in `assistant/src/voice.rs`, tested, and match the Mac.
+
+### Assistant actions (off by default)
+
+**Settings → Assistant actions** lets the chat prepare an email draft and set a
+reminder. The rule: it may draft on its own, but anything that sends or schedules
+waits for a card you click.
+
+- Works with Claude as the chat provider (the others have no actions yet).
+- A draft opens in your own mail app. Nothing is sent from Coucou.
+- A reminder shows on the island at its time, while Coucou is running. There is no
+  system scheduler behind it: a reminder that came due while Coucou was closed
+  shows once, marked as missed, the next time it starts.
+- Only a mouse click on **Allow** approves. Saying yes, typing yes, or anything the
+  model writes does not. Once a file, window or web search has entered a
+  conversation, every later action in it asks first until you reset the chat.
+- What was done is logged to `assistant-activity.jsonl` next to the log below,
+  without reminder titles, subjects or message text. Reminders wait in
+  `reminders.json` in the same folder.
+
+The rules live in `assistant/` (a plain Rust crate, tested on its own) and follow
+the Swift version on the Mac.
+
 ## GitHub
 
 With a token in **Settings… → Integrations → GitHub** — a classic token with
@@ -356,6 +408,7 @@ windows/
     views/             every island view
     settings/          the settings window
   src-tauri/           Rust backend: window, named pipe, Claude API, pollers
+  assistant/           assistant rules: policy, confirmation card, session (pure Rust, no UI)
   hook/                coucou-hook.exe, the Claude Code relay
   scripts/             icon generator
 ```

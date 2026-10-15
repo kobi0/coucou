@@ -42,8 +42,44 @@ function sharedSounds(): Plugin {
   };
 }
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Oma's expression pictures live in the top-level oma/ folder, shared by every app.
+export const OMA_SPRITES_DIR = resolve(__dirname, "../oma/character/sprites");
+// ───────────────────────────────────────────────────────────────────────────────
+
+const OMA_TYPES: Record<string, string> = { ".png": "image/png", ".json": "application/json" };
+
+/** Serves OMA_SPRITES_DIR at /oma/* in dev, and copies it into dist/oma on build. Absent pictures are fine:
+ *  the app then draws Oma in code. */
+function sharedOma(): Plugin {
+  const prefix = "/oma/";
+  return {
+    name: "oma-shared-sprites",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith(prefix)) return next();
+        const name = decodeURIComponent(req.url.slice(prefix.length).split("?")[0]);
+        const type = OMA_TYPES[extname(name)];
+        if (name.includes("/") || name.includes("\\") || !type) return next();
+        const file = join(OMA_SPRITES_DIR, name);
+        if (!existsSync(file)) return next();
+        res.setHeader("Content-Type", type);
+        createReadStream(file).pipe(res);
+      });
+    },
+    closeBundle() {
+      if (!existsSync(OMA_SPRITES_DIR)) return;
+      const out = resolve(__dirname, "dist/oma");
+      mkdirSync(out, { recursive: true });
+      for (const f of readdirSync(OMA_SPRITES_DIR)) {
+        if (OMA_TYPES[extname(f)]) copyFileSync(join(OMA_SPRITES_DIR, f), join(out, f));
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [sharedSounds()],
+  plugins: [sharedSounds(), sharedOma()],
   clearScreen: false,
   server: {
     port: 1420,

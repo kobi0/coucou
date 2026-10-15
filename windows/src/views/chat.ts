@@ -15,6 +15,10 @@ import {
 } from "../core/providers";
 import { Sound } from "../core/sound";
 import { State, type ChatMessage } from "../core/state";
+import { buildActionCard } from "./action-card";
+import { Hearing, Speaker } from "../voice/speech";
+import { createVoiceFlow, speakReply } from "../voice/flow";
+import { refreshVoice } from "../voice/engine";
 import type { ViewHost } from "./views";
 import { N_, t, tl } from "../i18n/i18n";
 
@@ -211,7 +215,22 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     spellcheck: "false",
   }) as HTMLInputElement;
   const send = h("button", { class: "send-btn", title: tl(STRINGS.send) }, svg(ICONS.arrowUp, 11));
-  const bar = h("div", { class: "chat-bar" }, input, send);
+  // Hold to talk. Hidden until a recogniser is ready (voice/speech.ts), so there is never a dead button.
+  const mic = h("button", { class: "mic-btn", title: "Hold to talk" }, svg(ICONS.mic, 12));
+  mic.style.display = "none";
+  const bar = h("div", { class: "chat-bar" }, input, mic, send);
+
+  // Lines written by the app (never by the model) go in as assistant messages.
+  function say(lines: string[]) {
+    for (const line of lines) {
+      if (line) State.chatHistory.push({ id: nextId++, role: "assistant", content: line });
+    }
+  }
+
+  const actionCard = buildActionCard({
+    allow: (id) => void allow(id),
+    deny: (id) => void deny(id),
+  });
 
   const modelDot = h("i", { class: "model-dot" });
   const modelName = h("span", { class: "model-name" });
@@ -229,15 +248,75 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     body.classList.toggle("picking", picker.isOpen);
     drawModelButton();
   });
-  body.append(chipRow, log, picker.el, modelRow, bar);
+  body.append(chipRow, log, picker.el, modelRow, bar, actionCard.el);
 
   const el = h("div", { class: "view" }, h("div", { class: "card wash chat-card" }, body));
   (el.querySelector(".card") as HTMLElement).style.setProperty("--wash", "rgba(99,102,241,0.5)");
+
+  const voice = createVoiceFlow({
+    setDraft: (text) => { input.value = text; },
+    send: (text) => { input.value = text; void submit(); },
+    say: (line) => { say([line]); State.notify(); onHeightChange(); },
+    liveText: (role, text) => addLiveText(role, text),
+    onListening: (on) => {
+      mic.classList.toggle("on", on);
+      if (on) liveOpenBubble = null; // a new press starts a new turn
+      input.placeholder = on ? voice.listeningText : t(State.chatHistory.length === 0 ? STRINGS.placeholderFirst : STRINGS.placeholderNext);
+    },
+  });
+  mic.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the text box
+  mic.addEventListener("pointerdown", (e) => {
+    if (!(e as PointerEvent).isTrusted) return;
+    mic.setPointerCapture((e as PointerEvent).pointerId);
+    void voice.press();
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    mic.addEventListener(type, () => void voice.release());
+  }
 
   let sending = false;
   let renderedCount = -1;
   // A local model answers token by token: where its text so far is shown.
   let live: HTMLElement | null = null;
+  // Gemini Live gives the words of a turn in pieces. A piece joins the open bubble of the same speaker, so one
+  // turn reads as one message. Everything is shown as plain text.
+  let liveOpenBubble: { role: "user" | "model"; message: ChatMessage } | null = null;
+  function addLiveText(role: "user" | "model", text: string) {
+    if (liveOpenBubble && liveOpenBubble.role === role) {
+      liveOpenBubble.message.content += text;
+    } else {
+      const message: ChatMessage = { id: nextId++, role: role === "user" ? "user" : "assistant", content: text.trimStart() };
+      State.chatHistory.push(message);
+      liveOpenBubble = { role, message };
+    }
+    renderedCount = -1;
+    State.notify();
+    onHeightChange();
+  }
+  let expiryTimer: number | undefined;
+
+  async function allow(id: number) {
+    try {
+      const reply = await Bridge.assistantApprove(id);
+      State.pendingActions = reply.actions;
+      say(reply.status === "rejected" ? [reply.message] : reply.notices);
+      if (reply.status === "done") Sound.play("approve");
+    } catch (err) {
+      say([String(err).replace(/^Error:\s*/, "")]);
+    }
+    State.notify();
+    onHeightChange();
+  }
+
+  async function deny(id: number) {
+    try {
+      State.pendingActions = await Bridge.assistantDeny(id);
+    } catch (err) {
+      say([String(err).replace(/^Error:\s*/, "")]);
+    }
+    State.notify();
+    onHeightChange();
+  }
 
   function drawModelButton() {
     const p = providerDef(State.settings.chatProvider);
@@ -270,6 +349,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     if (picker.isOpen) picker.close();
     input.value = "";
     sending = true;
+    Speaker.stop();
+    liveOpenBubble = null;
     drawModelButton();
     Sound.play("send");
 
@@ -284,9 +365,12 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
 
     try {
       const reply = await Bridge.chatSend(query, context);
-      State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+      if (reply.text) State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+      say(reply.notices);
+      State.pendingActions = reply.actions;
       State.stateOverride = null;
       Sound.play("finish");
+      void speakReply(reply.text, reply.actions.length > 0);
     } catch (err) {
       State.stateOverride = null;
       State.noteMessage = String(err).replace(/^Error:\s*/, "");
@@ -341,10 +425,23 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       if (State.view !== "prompt" && picker.isOpen) picker.close();
       drawModelButton();
 
-      input.placeholder = t(State.chatHistory.length === 0 ? STRINGS.placeholderFirst : STRINGS.placeholderNext);
+      mic.style.display = Hearing.get() ? "" : "none";
+      if (!mic.classList.contains("on")) {
+        input.placeholder = t(State.chatHistory.length === 0 ? STRINGS.placeholderFirst : STRINGS.placeholderNext);
+      }
       input.disabled = sending;
+
+      const nowSeconds = Date.now() / 1000;
+      actionCard.sync(State.pendingActions, nowSeconds);
+      // A card that nobody answers disappears when it expires.
+      window.clearTimeout(expiryTimer);
+      const soonest = Math.min(...State.pendingActions.map((a) => a.expiresAt));
+      if (Number.isFinite(soonest)) {
+        expiryTimer = window.setTimeout(() => State.notify(), Math.max(250, (soonest - nowSeconds) * 1000 + 100));
+      }
     },
     focus() {
+      void refreshVoice().then(() => State.notify()); // a model dropped in, or a new voice engine, shows the mic
       input.focus();
       input.select();
     },

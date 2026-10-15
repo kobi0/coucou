@@ -48,7 +48,7 @@ back to Mochi); if the pictures are missing she is drawn in code instead.
 The small ones on the pills and in the compact grid are Oma too, each dyed purple, green, blue or army.
 
 Voice on Windows: Pidgin/English language, reading replies aloud with local voices, and the hold-to-talk plumbing are
-in. Hearing is on-device (whisper.cpp, behind the `local-speech` build feature, with a model file the person adds);
+in. Hearing is on-device, with the Parakeet model Flow dictation already ships (the person downloads it from Flow's settings);
 the code is written and its parts are tested, but it has not yet run on Windows or heard a real voice.
 The Pidgin and English voice can instead be Gemini Live (opt-in, Windows first; the Mac has no Gemini voice yet): the
 only path that sends the voice to a server, behind an explicit choice and a Gemini key the person adds.

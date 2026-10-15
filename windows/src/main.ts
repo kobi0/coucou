@@ -2,6 +2,7 @@
 
 import "./style.css";
 import { Bridge, IS_TAURI, onEvent } from "./core/bridge";
+import { refreshVoice } from "./voice/engine";
 import { Sound } from "./core/sound";
 import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
@@ -55,6 +56,7 @@ async function main() {
   State.loadIntegrationTasks();
   if (boot && !boot.cursorPoll) island.followPageCursor();
   await island.desktop.init();
+  void refreshVoice(); // the mic shows only when a voice engine is ready
 
   await onEvent<{ x: number; y: number }>("cursor", ({ x, y }) => island.onCursor(x, y));
   await onEvent<boolean>("pointer-inside", (inside) => island.setPointerInside(inside));
@@ -97,6 +99,14 @@ async function main() {
     await Bridge.fitZoom(dpr);
   };
 
+  // A reminder the assistant set has come due. The text is written by the app.
+  await onEvent<{ text: string }>("assistant-notice", ({ text }) => {
+    if (State.paused) return;
+    State.noteMessage = text;
+    Sound.play("finish");
+    island.alert("note");
+  });
+
   await onEvent<null>("screen-changed", async () => {
     await checkZoom();
     void Bridge.reposition();
@@ -133,6 +143,7 @@ async function main() {
     // A new main tool comes to the front, as on macOS.
     if (State.mainPillId !== previousMain) State.setFocus(State.mainPillId);
     void refreshConfigured();
+    void refreshVoice(); // a different voice engine, or a new Gemini key
   });
 
   registerHookHandlers(island);

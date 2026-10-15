@@ -10,6 +10,7 @@
 
 import { h, clear } from "./dom";
 import type { CardLine, PendingAction } from "../core/state";
+import { t } from "../i18n/i18n";
 
 export interface ActionCardHandlers {
   allow: (id: number) => void;
@@ -82,11 +83,11 @@ export function buildActionCard(handlers: ActionCardHandlers): ActionCard {
     );
     const body = h("div", { class: "ac-lines" }, ...card.lines.map(lineView));
 
-    const deny = h("button", { class: "btn secondary", tabindex: -1, text: "Deny" });
+    const deny = h("button", { class: "btn secondary", tabindex: -1, text: t("Deny") });
     const allow = h("button", {
       class: "btn primary",
       tabindex: -1,
-      text: card.needsSecondClick ? (confirming === action.id ? "Click again to confirm" : "Allow…") : "Allow",
+      text: card.needsSecondClick ? (confirming === action.id ? "Click again to confirm" : "Allow…") : t("Allow"),
     });
     // A press on a button must not move focus out of the chat field or onto the button.
     for (const b of [deny, allow]) b.addEventListener("mousedown", (e) => e.preventDefault());

@@ -395,12 +395,13 @@ function buildOverview(actions: ViewActions): ViewHost {
         pillIds = pillKey;
         clear(pills);
         spotifyPill = null;
+        let i = 0;
         for (const t of others) {
           if (t.id === SPOTIFY_ID) {
             spotifyPill = buildSpotifyPill(t, () => actions.setFocus(t.id));
             pills.append(spotifyPill.el);
           } else {
-            pills.append(buildPill(t, actions));
+            pills.append(buildPill(t, actions, i++));
           }
         }
         pruneMiniBots();
@@ -424,9 +425,9 @@ export function hasSessionTicker(task: AgentTask): boolean {
   return isSession && (task.state !== "idle" || task.steps.length > 0);
 }
 
-function buildPill(task: AgentTask, actions: ViewActions): HTMLElement {
+function buildPill(task: AgentTask, actions: ViewActions, index = 0): HTMLElement {
   const label = task.id === "integration_claude" ? pillDefinition(task.id)!.name : task.name;
-  const canvas = createMiniBot(task, 24);
+  const canvas = createMiniBot(task, 24, undefined, index);
   const pill = h(
     "div",
     { class: "pill", onclick: () => actions.setFocus(task.id) },

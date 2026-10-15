@@ -1,5 +1,5 @@
 // The on-device recogniser. Records while the mic button is held, then hands the clip to Rust, where
-// whisper.cpp turns it into words on this computer. The audio is never sent anywhere and never saved.
+// the speech model Flow dictation already uses (Parakeet) turns it into words on this computer. The audio is never sent anywhere and never saved.
 // It plugs into voice/speech.ts only when Rust says a model is in place (see voice/engine.ts).
 
 import { Bridge } from "../core/bridge";

@@ -2,12 +2,13 @@
 // page is opened in a plain browser, so the island can be iterated on with
 // `npm run dev` alone.
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { Settings } from "./state";
+import type { PendingAction, Settings } from "./state";
 import type { RecapHistory, RecapPrefs } from "../recap/summary";
 import type { SpotifyState } from "./spotify";
+import type { RecognizerStatus } from "../voice/local";
 
 export const IS_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -177,6 +178,30 @@ export interface PhoneLinkQuestion {
 export interface PhoneAnswersStatus {
   enabled: boolean;
 }
+export interface VoiceLines {
+  listening: string;
+  didNotCatch: string;
+  checkTheCard: string;
+  micBlocked: string;
+  needsRecognizer: string;
+  restOnScreen: string;
+  needsGeminiKey: string;
+  liveFailed: string;
+  recognizerLocales: string[];
+  voiceLocales: string[];
+}
+
+/** What a Gemini Live conversation reports. Errors are short codes the page turns into lines. */
+export type LiveEvent =
+  | { kind: "ready" | "interrupted" | "turnComplete" | "closed" }
+  | { kind: "audio"; data: string }
+  | { kind: "text"; role: "user" | "model"; text: string }
+  | { kind: "error"; code: "no_key" | "auth" | "connect" | "closed" };
+
+/** What the hold-to-talk machine in Rust asks the page to do next. */
+export type VoiceCommand =
+  | { kind: "start" | "stop" | "discard" }
+  | { kind: "send" | "hint"; text: string };
 
 export const Bridge = {
   boot: () => call<BootInfo>("boot"),
@@ -327,9 +352,43 @@ export const Bridge = {
   phoneLinkPublishPrefs: (outfit: string) => call<void>("phone_link_publish_prefs", { outfit }),
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
+  /** The app's fixed lines in the assistant's language, and the locales to hear and speak with. */
+  voiceLines: () => call<VoiceLines>("voice_lines"),
+  /** Whether the speech model (the one Flow dictation uses) is downloaded, so hold-to-talk can hear. */
+  voiceRecognizerStatus: () => call<RecognizerStatus>("voice_recognizer_status"),
+  /** A recorded clip (16 kHz mono 16-bit PCM) to words, on this computer. Rejects with a short code. */
+  voiceTranscribe: (pcm: Uint8Array) => invoke<string | null>("voice_transcribe", pcm),
+  openModelsFolder: () => call<void>("open_models_folder"),
+  /** Gemini Live: whether a key is saved, which model, and whether the person chose it. The key never leaves Rust. */
+  liveStatus: () => call<{ hasKey: boolean; model: string; chosen: boolean }>("live_status"),
+  /** Opens a spoken conversation. Events (ready, sound, words, errors) arrive on `onEvent`. */
+  liveOpen: async (onEvent: (e: LiveEvent) => void): Promise<boolean> => {
+    if (!IS_TAURI) return false;
+    const events = new Channel<LiveEvent>();
+    events.onmessage = onEvent;
+    try {
+      await invoke<void>("live_open", { events }); // returns nothing on success, so only a throw is a failure
+      return true;
+    } catch (err) {
+      console.error("[coucou] live_open failed", err);
+      return false;
+    }
+  },
+  /** One chunk of microphone audio, 16 kHz mono 16-bit PCM. */
+  liveAudio: (pcm: Uint8Array) => call<void>("live_audio", pcm as unknown as Record<string, unknown>),
+  liveActivity: (speaking: boolean) => call<void>("live_activity", { speaking }),
+  liveClose: () => call<void>("live_close"),
+  voicePress: () => call<VoiceCommand[]>("voice_press"),
+  voiceRelease: () => call<VoiceCommand[]>("voice_release"),
+  voiceTick: () => call<VoiceCommand[]>("voice_tick"),
+  voiceHeard: (text: string) => call<string>("voice_heard", { text }),
+  voiceFinished: (transcript: string | null) => call<VoiceCommand[]>("voice_finished", { transcript }),
+  voiceFailed: (reason: "blocked" | "unavailable" | "failed") => call<VoiceCommand[]>("voice_failed", { reason }),
+  voiceCancel: () => call<VoiceCommand[]>("voice_cancel"),
+
   /** One chat turn. The API key and any file bytes never leave Rust. */
   chatSend: (query: string, context: ChatContext | null) =>
-    callOrThrow<{ text: string }>("chat_send", { query, context }),
+    callOrThrow<ChatReply>("chat_send", { query, context }),
   chatReset: () => call<void>("chat_reset"),
   /**
    * The models a provider offers, for the picker in the chat view. Rust asks
@@ -342,6 +401,16 @@ export const Bridge = {
 
   localConnect: (provider: "ollama" | "lmstudio" | "custom", url: string) =>
     callOrThrow<LocalServer>("local_connect", { provider, url }),
+
+  // ── Assistant actions ─────────────────────────────────────────────────────
+  /** Cards still waiting for a click. */
+  assistantPending: () => call<PendingAction[]>("assistant_pending"),
+  /**
+   * The Allow button. Rust treats this as the one and only way to approve, so it is
+   * called from a trusted click and nowhere else.
+   */
+  assistantApprove: (id: number) => callOrThrow<ApproveReply>("assistant_approve", { id }),
+  assistantDeny: (id: number) => callOrThrow<PendingAction[]>("assistant_deny", { id }),
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
   /** Only ever tells you whether a key exists — never its value. */
@@ -447,6 +516,21 @@ export async function emitToWindow(label: string, event: string, payload?: unkno
   } catch (err) {
     console.error(`[coucou] emit ${event} failed`, err);
   }
+}
+
+/** What one chat turn hands back: the model's words, lines the app wrote, and the cards now waiting. */
+export interface ChatReply {
+  text: string;
+  /** Written by the app, never by the model. Shown as assistant lines. */
+  notices: string[];
+  actions: PendingAction[];
+}
+
+export interface ApproveReply {
+  status: "done" | "needsSecondClick" | "rejected";
+  message: string;
+  notices: string[];
+  actions: PendingAction[];
 }
 
 export interface IntegrationUpdate {

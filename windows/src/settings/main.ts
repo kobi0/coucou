@@ -916,6 +916,101 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  const character = h("select", {}) as HTMLSelectElement;
+  character.append(h("option", { value: "oma", text: "Oma" }), h("option", { value: "mochi", text: "Mochi" }));
+  character.value = settings.character;
+  character.addEventListener("change", () => {
+    settings.character = character.value as Settings["character"];
+    void save();
+  });
+
+  const language = h("select", {}) as HTMLSelectElement;
+  language.append(
+    h("option", { value: "en", text: "English" }),
+    h("option", { value: "pcm", text: "Nigerian Pidgin" }),
+  );
+  language.value = settings.voiceLanguage;
+  language.addEventListener("change", () => {
+    settings.voiceLanguage = language.value as Settings["voiceLanguage"];
+    void save();
+  });
+
+  // Hold-to-talk hears on this computer only, with the speech model Flow dictation already uses.
+  const voiceInput = h("span", { class: "hint", text: "Checking…" });
+  void Bridge.voiceRecognizerStatus().then((status) => {
+    if (!status) return;
+    if (status.state === "ready") {
+      voiceInput.textContent = `Ready, using ${status.model}. Your voice stays on this computer.`;
+    } else if (status.state === "noModel") {
+      voiceInput.textContent =
+        "Download the speech model in Flow's settings (the one dictation uses), then reopen the chat.";
+    }
+  });
+
+  // What hears and speaks. Gemini Live is the only choice that sends your voice anywhere, so it says so here.
+  const engine = h("select", {}) as HTMLSelectElement;
+  engine.append(
+    h("option", { value: "device", text: "On this computer (private)" }),
+    h("option", { value: "gemini", text: "Gemini Live (online)" }),
+  );
+  engine.value = settings.voiceEngine;
+  const geminiBox = h("div", { class: "row", style: "flex-wrap:wrap" });
+  const geminiNote = h("span", {
+    class: "hint",
+    text:
+      "While you hold the mic, what you say is sent to Google, and Gemini answers in its own voice, in English or " +
+      "Pidgin as set above. It can talk but cannot send or do anything. Needs a Gemini API key from Google AI Studio, " +
+      "kept in the Windows Credential Manager.",
+  });
+  const geminiField = h("input", {
+    type: "password",
+    placeholder: "Gemini API key",
+    style: "flex:1 1 auto;min-width:0",
+    autocomplete: "off",
+    spellcheck: "false",
+  }) as HTMLInputElement;
+  const geminiSave = h("button", { class: "primary", text: t("Save key") });
+  const geminiClear = h("button", { class: "danger", text: t("Remove") });
+  const geminiState = h("span", { class: "hint", text: "" });
+  async function refreshGemini() {
+    const present = (await Bridge.secretPresent("gemini-api-key")) ?? false;
+    geminiState.textContent = present ? "Key saved." : "No key yet: Gemini voice will not work until you add one.";
+    geminiField.placeholder = present ? "••••••••••••  (stored)" : "Gemini API key";
+    geminiClear.style.display = present ? "" : "none";
+  }
+  geminiSave.addEventListener("click", async () => {
+    const value = geminiField.value.trim();
+    if (!value) return;
+    try {
+      await Bridge.secretSet("gemini-api-key", value);
+      geminiField.value = "";
+    } catch (err) {
+      geminiState.textContent = `Could not save: ${String(err)}`;
+      return;
+    }
+    await refreshGemini();
+  });
+  geminiClear.addEventListener("click", async () => {
+    try {
+      await Bridge.secretClear("gemini-api-key");
+    } catch (err) {
+      geminiState.textContent = `Could not remove: ${String(err)}`;
+      return;
+    }
+    await refreshGemini();
+  });
+  geminiBox.append(h("label", { text: "Gemini key" }), geminiField, geminiSave, geminiClear, geminiState, geminiNote);
+  const showEngine = () => {
+    geminiBox.style.display = engine.value === "gemini" ? "" : "none";
+  };
+  engine.addEventListener("change", () => {
+    settings.voiceEngine = engine.value as Settings["voiceEngine"];
+    showEngine();
+    void save();
+  });
+  showEngine();
+  void refreshGemini();
+
   const screen = h("select", {}) as HTMLSelectElement;
   screen.append(
     h("option", { value: "primary", text: t("Main display") }),
@@ -964,12 +1059,50 @@ function generalSection(): HTMLElement {
       h("span", { class: "hint", text: t("seconds after you leave the island") }),
     ),
     h("div", { class: "row" },
+      h("label", { text: "Character" }),
+      character,
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Assistant language" }),
+      language,
+      h("span", { class: "hint", text: "How the chat talks to you. Tool details such as email addresses stay exact." }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Read replies aloud" }),
+      toggle(settings.speakReplies, (v) => { settings.speakReplies = v; void save(); }),
+      h("span", {
+        class: "hint",
+        text: "Uses a voice installed on this computer. Online voices are never used, so your text stays here.",
+      }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Voice engine" }),
+      engine,
+    ),
+    geminiBox,
+    h("div", { class: "row" },
+      h("label", { text: "Voice input" }),
+      voiceInput,
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Send when I let go of the mic" }),
+      toggle(settings.voiceAutoSend, (v) => { settings.voiceAutoSend = v; void save(); }),
+    ),
+    h("div", { class: "row" },
       h("label", { text: t("Island lives on") }),
       screen,
     ),
     h("div", { class: "row" },
       h("label", { text: t("Launch at startup") }),
       toggle(settings.autostart, (v) => { settings.autostart = v; void save(); }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Assistant actions" }),
+      toggle(settings.assistantTools, (v) => { settings.assistantTools = v; void save(); }),
+      h("span", {
+        class: "hint",
+        text: "Lets the chat draft emails and set reminders. Every action waits for your click on a card.",
+      }),
     ),
     ...recapRows(),
     languageRow(),

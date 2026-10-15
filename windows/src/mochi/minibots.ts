@@ -2,6 +2,7 @@
 // Each canvas owns a BotEngine; the island's frame loop ticks every live one.
 
 import { BotEngine, hexToRGB } from "./engine";
+import { OMA_MINI_COLORS, OmaEngine } from "../oma/engine";
 import type { AgentTask } from "../core/state";
 
 interface MiniBot {
@@ -11,6 +12,40 @@ interface MiniBot {
   taskId: string;
   /** Asked every frame: whether this one dances (the music pill's, MiniBotCanvasView). */
   dancing?: () => boolean;
+  task: AgentTask;
+  index: number;
+}
+
+let character: "oma" | "mochi" = "mochi";
+
+function makeEngine(task: AgentTask, index: number): BotEngine {
+  let engine: BotEngine;
+  if (character === "oma") {
+    const oma = new OmaEngine();
+    oma.bodyTint = OMA_MINI_COLORS[index % OMA_MINI_COLORS.length];
+    engine = oma;
+  } else {
+    engine = new BotEngine();
+    engine.bodyColor = hexToRGB(task.color);
+  }
+  engine.isMini = true;
+  engine.setState(task.state, true);
+  if (task.emote) engine.setPermanentEmote(task.emote);
+  if (task.miniEye) {
+    engine.permanentEye = task.miniEye;
+    engine.eyeOverride = task.miniEye;
+    engine.eyeOverrideUntil = Number.POSITIVE_INFINITY;
+  }
+  return engine;
+}
+
+/** Which character the small ones are. Swapping rebuilds each one's engine and keeps its state. */
+export function setMiniCharacter(kind: "oma" | "mochi") {
+  if (kind === character) return;
+  character = kind;
+  for (const mb of live.values()) {
+    mb.engine = makeEngine(mb.task, mb.index);
+  }
 }
 
 const live = new Map<HTMLCanvasElement, MiniBot>();
@@ -24,7 +59,7 @@ const live = new Map<HTMLCanvasElement, MiniBot>();
  * `.frame(width: 22)`. Sizing the canvas itself to `bodySize` would shrink the
  * whole drawing to 60 %, which is what used to happen.
  */
-export function createMiniBot(task: AgentTask, bodySize: number, dancing?: () => boolean): HTMLElement {
+export function createMiniBot(task: AgentTask, bodySize: number, dancing?: () => boolean, index = 0): HTMLElement {
   const slot = document.createElement("span");
   slot.className = "mini";
   slot.style.width = `${bodySize}px`;
@@ -39,18 +74,9 @@ export function createMiniBot(task: AgentTask, bodySize: number, dancing?: () =>
   canvas.style.height = `${engineSize}px`;
   slot.append(canvas);
 
-  const engine = new BotEngine();
-  engine.isMini = true;
-  engine.bodyColor = hexToRGB(task.color);
-  engine.setState(task.state, true);
-  if (task.emote) engine.setPermanentEmote(task.emote);
-  if (task.miniEye) {
-    engine.permanentEye = task.miniEye;
-    engine.eyeOverride = task.miniEye;
-    engine.eyeOverrideUntil = Number.POSITIVE_INFINITY;
-  }
+  const engine = makeEngine(task, index);
 
-  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id, dancing });
+  live.set(canvas, { canvas, engine, cssSize: engineSize, taskId: task.id, dancing, task, index });
   return slot;
 }
 
@@ -70,7 +96,8 @@ export function syncMiniBotStates(tasks: AgentTask[]) {
     const task = tasks.find((t) => t.id === mb.taskId);
     if (!task) continue;
     mb.engine.setState(task.state);
-    mb.engine.bodyColor = hexToRGB(task.color);
+    mb.task = task;
+    if (!(mb.engine instanceof OmaEngine)) mb.engine.bodyColor = hexToRGB(task.color);
   }
 }
 
