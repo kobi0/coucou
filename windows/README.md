@@ -86,10 +86,20 @@ as email addresses and times stay exact in either.
 - **Read replies aloud** uses a voice installed on this computer. A voice that
   sends text to a server (the "online" or "natural" ones Edge also lists) is never
   used. If no local voice matches, nothing is said.
-- **Hold to talk** is built (hold the mic, let go, the words go to the chat box or
-  are sent, as you choose), but the mic stays hidden until a speech recogniser is
-  plugged in. None ships yet. What is heard is only text: it can never approve an
-  action.
+- **Hold to talk** hears on this computer only (whisper.cpp). Hold the mic, speak,
+  let go: the words go to the chat box or are sent, as you choose. Your voice is
+  never sent anywhere and never saved. What is heard is only text: it can never
+  approve an action. Two things are needed, and the mic stays hidden until both are
+  there:
+  1. A build with the recogniser: `npm run tauri build -- --features local-speech`
+     (or `npm run tauri dev -- --features local-speech`). It compiles whisper.cpp, so
+     it needs CMake and LLVM/libclang next to the usual Tauri tools.
+  2. A speech model file in the models folder (**Settings → Voice input → Open
+     models folder**). Get `ggml-base.en.bin` (about 140 MB; `ggml-small.en.bin` is
+     more accurate and slower) from the whisper.cpp project's model page,
+     huggingface.co/ggerganov/whisper.cpp. Coucou never downloads it for you.
+  English models hear Nigerian-accented English well enough to try; both the English
+  and Pidgin assistants are heard as English. Reopen the chat after adding the file.
 - The hold-to-talk rules (a tap is dropped, a minute is the longest, silence gives a
   hint, never a message) are in `assistant/src/voice.rs`, tested, and match the Mac.
 

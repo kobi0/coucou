@@ -9,6 +9,7 @@ import { State, type ChatMessage } from "../core/state";
 import { buildActionCard } from "./action-card";
 import { Hearing, Speaker } from "../voice/speech";
 import { createVoiceFlow, speakReply } from "../voice/flow";
+import { refreshRecognizer } from "../voice/local";
 import type { ViewHost } from "./views";
 
 let nextId = 1;
@@ -203,6 +204,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
     },
     focus() {
+      void refreshRecognizer().then(() => State.notify()); // a model dropped in while Coucou ran shows the mic
       input.focus();
       input.select();
     },

@@ -6,6 +6,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+local-speech = ["dep:whisper-rs"]
+
 [lib]
 name = "coucou_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -21,6 +24,9 @@ tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tokio = { version = "1", features = ["net", "io-util", "sync", "time", "rt"] }
+# On-device speech recognition (whisper.cpp). Off by default because it needs cmake and a C++ compiler to
+# build; without it the mic stays hidden. Build with: npm run tauri build -- --features local-speech
+whisper-rs = { version = "0.16", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [target.'cfg(windows)'.dependencies]

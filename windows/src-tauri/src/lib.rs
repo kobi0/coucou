@@ -11,6 +11,7 @@ mod pipe;
 mod platform;
 mod secrets;
 mod settings;
+mod speech;
 mod tray;
 
 use std::process::Command;
@@ -366,6 +367,38 @@ fn voice_cancel(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Ve
     voice.commands(&shared, out)
 }
 
+/// Whether hold-to-talk can hear on this computer: a recogniser built in, and a model file in place.
+#[tauri::command]
+fn voice_recognizer_status() -> speech::RecognizerStatus {
+    speech::status()
+}
+
+/// Turns a recorded clip (16 kHz mono 16-bit PCM, sent as the raw request body) into words, on this computer.
+/// Errors are short codes the page maps to hints: "no_model", "not_built", "too_long", anything else is a
+/// failure. Nothing is kept: the audio is dropped when this returns.
+#[tauri::command]
+async fn voice_transcribe(
+    request: tauri::ipc::Request<'_>,
+    engine: State<'_, Arc<speech::Engine>>,
+) -> Result<Option<String>, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("bad_audio".into());
+    };
+    let bytes = bytes.clone();
+    let engine = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || engine.transcribe(&bytes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Opens the folder where speech models go (created if needed) in the file manager.
+#[tauri::command]
+fn open_models_folder() {
+    let dir = speech::models_dir();
+    let _ = std::fs::create_dir_all(&dir);
+    platform::reveal_folder(&dir.display().to_string());
+}
+
 #[tauri::command]
 fn chat_reset(chat: State<Chat>) {
     // Anything still waiting for a click is dropped and logged as declined.
@@ -498,6 +531,7 @@ pub fn run() {
         .manage(Pending::default())
         .manage(Chat::default())
         .manage(VoiceMachine::new())
+        .manage(Arc::new(speech::Engine::default()))
         .manage(assistant::Reminders::default())
         .invoke_handler(tauri::generate_handler![
             boot,
@@ -518,6 +552,9 @@ pub fn run() {
             log_line,
             chat_send,
             voice_lines,
+            voice_recognizer_status,
+            voice_transcribe,
+            open_models_folder,
             voice_press,
             voice_release,
             voice_tick,

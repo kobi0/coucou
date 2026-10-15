@@ -48,7 +48,8 @@ back to Mochi); if the pictures are missing she is drawn in code instead.
 The small ones on the pills and in the compact grid are Oma too, each dyed purple, green, blue or army.
 
 Voice on Windows: Pidgin/English language, reading replies aloud with local voices, and the hold-to-talk plumbing are
-in; the speech recogniser is not chosen yet, so the mic is hidden.
+in. Hearing is on-device (whisper.cpp, behind the `local-speech` build feature, with a model file the person adds);
+the code is written and its parts are tested, but it has not yet run on Windows or heard a real voice.
 
 Not done: Oma in the Mac app (it still shows Mochi), and on Windows the greeting and the drop animation still show Mochi. Also the Nigerian outfits, the Pidgin varieties file, Oma sounds, the new app name and icon.
 

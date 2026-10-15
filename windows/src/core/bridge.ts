@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PendingAction, Settings } from "./state";
+import type { RecognizerStatus } from "../voice/local";
 
 export const IS_TAURI =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -100,6 +101,11 @@ export const Bridge = {
   /** One chat turn. The API key and any file bytes never leave Rust. */
   /** The app's fixed lines in the assistant's language, and the locales to hear and speak with. */
   voiceLines: () => call<VoiceLines>("voice_lines"),
+  /** Whether this build can hear, and whether a speech model file is in place. */
+  voiceRecognizerStatus: () => call<RecognizerStatus>("voice_recognizer_status"),
+  /** A recorded clip (16 kHz mono 16-bit PCM) to words, on this computer. Rejects with a short code. */
+  voiceTranscribe: (pcm: Uint8Array) => invoke<string | null>("voice_transcribe", pcm),
+  openModelsFolder: () => call<void>("open_models_folder"),
   voicePress: () => call<VoiceCommand[]>("voice_press"),
   voiceRelease: () => call<VoiceCommand[]>("voice_release"),
   voiceTick: () => call<VoiceCommand[]>("voice_tick"),

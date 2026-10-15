@@ -2,6 +2,7 @@
 
 import "./style.css";
 import { Bridge, IS_TAURI, onEvent } from "./core/bridge";
+import { refreshRecognizer } from "./voice/local";
 import { Sound } from "./core/sound";
 import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
@@ -23,6 +24,7 @@ async function main() {
   island.applySettings();
   State.loadIntegrationTasks();
   if (boot && !boot.cursorPoll) island.followPageCursor();
+  void refreshRecognizer(); // the mic shows only when a speech model is in place
 
   await onEvent<{ x: number; y: number }>("cursor", ({ x, y }) => island.onCursor(x, y));
 

@@ -400,6 +400,22 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  // Hold-to-talk hears on this computer only. It needs a speech model file; the app never downloads one.
+  const voiceInput = h("span", { class: "hint", text: "Checking…" });
+  const modelsButton = h("button", { text: "Open models folder", onclick: () => void Bridge.openModelsFolder() });
+  void Bridge.voiceRecognizerStatus().then((status) => {
+    if (!status) return;
+    if (status.state === "ready") {
+      voiceInput.textContent = `Ready, using ${status.model}. Your voice stays on this computer.`;
+    } else if (status.state === "noModel") {
+      voiceInput.textContent =
+        "Add a speech model (ggml-base.en.bin) to the models folder, then reopen the chat. See the README.";
+      voiceInput.before(modelsButton);
+    } else {
+      voiceInput.textContent = "This build has no speech recogniser. Typing and reading aloud still work.";
+    }
+  });
+
   const screen = h("select", {}) as HTMLSelectElement;
   screen.append(
     h("option", { value: "primary", text: "Main display" }),
@@ -441,6 +457,10 @@ function generalSection(): HTMLElement {
         class: "hint",
         text: "Uses a voice installed on this computer. Online voices are never used, so your text stays here.",
       }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Voice input" }),
+      voiceInput,
     ),
     h("div", { class: "row" },
       h("label", { text: "Send when I let go of the mic" }),
