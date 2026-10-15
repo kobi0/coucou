@@ -10,6 +10,7 @@
 
 pub mod catalog;
 pub mod exec;
+pub mod live;
 pub mod log;
 pub mod parsers;
 pub mod policy;
@@ -30,3 +31,4 @@ pub use tool::{ToolArguments, ToolCall, ToolField, ToolOrigin, ToolRisk, ToolSpe
 pub use exec::{run_tool, Env, Outcome};
 pub use reminders::{Reminder, ReminderBook};
 pub use voice::{clean_transcript, VoiceCommand, VoiceFailure, VoiceLanguage, VoicePhrase, VoiceSession, VoiceState, SPOKEN_STYLE};
+pub use live::{LiveEvent, Speaker};

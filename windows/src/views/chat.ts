@@ -9,7 +9,7 @@ import { State, type ChatMessage } from "../core/state";
 import { buildActionCard } from "./action-card";
 import { Hearing, Speaker } from "../voice/speech";
 import { createVoiceFlow, speakReply } from "../voice/flow";
-import { refreshRecognizer } from "../voice/local";
+import { refreshVoice } from "../voice/engine";
 import type { ViewHost } from "./views";
 
 let nextId = 1;
@@ -78,8 +78,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     setDraft: (text) => { input.value = text; },
     send: (text) => { input.value = text; void submit(); },
     say: (line) => { say([line]); State.notify(); onHeightChange(); },
+    liveText: (role, text) => addLiveText(role, text),
     onListening: (on) => {
       mic.classList.toggle("on", on);
+      if (on) liveOpenBubble = null; // a new press starts a new turn
       input.placeholder = on ? voice.listeningText : "Ask me anything…";
     },
   });
@@ -95,6 +97,21 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
 
   let sending = false;
   let renderedCount = -1;
+  // Gemini Live gives the words of a turn in pieces. A piece joins the open bubble of the same speaker, so one
+  // turn reads as one message. Everything is shown as plain text.
+  let liveOpenBubble: { role: "user" | "model"; message: ChatMessage } | null = null;
+  function addLiveText(role: "user" | "model", text: string) {
+    if (liveOpenBubble && liveOpenBubble.role === role) {
+      liveOpenBubble.message.content += text;
+    } else {
+      const message: ChatMessage = { id: nextId++, role: role === "user" ? "user" : "assistant", content: text.trimStart() };
+      State.chatHistory.push(message);
+      liveOpenBubble = { role, message };
+    }
+    renderedCount = -1;
+    State.notify();
+    onHeightChange();
+  }
   let expiryTimer: number | undefined;
 
   async function allow(id: number) {
@@ -126,6 +143,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     input.value = "";
     sending = true;
     Speaker.stop();
+    liveOpenBubble = null;
     Sound.play("send");
 
     State.chatHistory.push({ id: nextId++, role: "user", content: query });
@@ -204,7 +222,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       }
     },
     focus() {
-      void refreshRecognizer().then(() => State.notify()); // a model dropped in while Coucou ran shows the mic
+      void refreshVoice().then(() => State.notify()); // a model dropped in, or a new voice engine, shows the mic
       input.focus();
       input.select();
     },

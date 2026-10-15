@@ -35,6 +35,21 @@ pub struct Settings {
     /// Sends what was heard as soon as the mic button is let go. Off puts it in the text box to check first.
     #[serde(default = "yes")]
     pub voice_auto_send: bool,
+    /// What hears and speaks: "device" (hold-to-talk on this computer) or "gemini" (Gemini Live, which sends
+    /// the voice to Google and needs a Gemini key). Off until chosen.
+    #[serde(default = "default_voice_engine")]
+    pub voice_engine: String,
+    /// The Gemini Live model. Kept as a setting so a retired model can be swapped without a new build.
+    #[serde(default = "default_gemini_model")]
+    pub gemini_live_model: String,
+}
+
+fn default_voice_engine() -> String {
+    "device".to_string()
+}
+
+fn default_gemini_model() -> String {
+    coucou_assistant::live::DEFAULT_MODEL.to_string()
 }
 
 fn yes() -> bool {
@@ -75,6 +90,8 @@ impl Default for Settings {
             voice_language: default_voice_language(),
             speak_replies: false,
             voice_auto_send: true,
+            voice_engine: default_voice_engine(),
+            gemini_live_model: default_gemini_model(),
         }
     }
 }

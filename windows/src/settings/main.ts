@@ -416,6 +416,70 @@ function generalSection(): HTMLElement {
     }
   });
 
+  // What hears and speaks. Gemini Live is the only choice that sends your voice anywhere, so it says so here.
+  const engine = h("select", {}) as HTMLSelectElement;
+  engine.append(
+    h("option", { value: "device", text: "On this computer (private)" }),
+    h("option", { value: "gemini", text: "Gemini Live (online)" }),
+  );
+  engine.value = settings.voiceEngine;
+  const geminiBox = h("div", { class: "row", style: "flex-wrap:wrap" });
+  const geminiNote = h("span", {
+    class: "hint",
+    text:
+      "While you hold the mic, what you say is sent to Google, and Gemini answers in its own voice, in English or " +
+      "Pidgin as set above. It can talk but cannot send or do anything. Needs a Gemini API key from Google AI Studio, " +
+      "kept in the Windows Credential Manager.",
+  });
+  const geminiField = h("input", {
+    type: "password",
+    placeholder: "Gemini API key",
+    style: "flex:1 1 auto;min-width:0",
+    autocomplete: "off",
+    spellcheck: "false",
+  }) as HTMLInputElement;
+  const geminiSave = h("button", { class: "primary", text: "Save key" });
+  const geminiClear = h("button", { class: "danger", text: "Remove" });
+  const geminiState = h("span", { class: "hint", text: "" });
+  async function refreshGemini() {
+    const present = (await Bridge.secretPresent("gemini-api-key")) ?? false;
+    geminiState.textContent = present ? "Key saved." : "No key yet: Gemini voice will not work until you add one.";
+    geminiField.placeholder = present ? "••••••••••••  (stored)" : "Gemini API key";
+    geminiClear.style.display = present ? "" : "none";
+  }
+  geminiSave.addEventListener("click", async () => {
+    const value = geminiField.value.trim();
+    if (!value) return;
+    try {
+      await Bridge.secretSet("gemini-api-key", value);
+      geminiField.value = "";
+    } catch (err) {
+      geminiState.textContent = `Could not save: ${String(err)}`;
+      return;
+    }
+    await refreshGemini();
+  });
+  geminiClear.addEventListener("click", async () => {
+    try {
+      await Bridge.secretClear("gemini-api-key");
+    } catch (err) {
+      geminiState.textContent = `Could not remove: ${String(err)}`;
+      return;
+    }
+    await refreshGemini();
+  });
+  geminiBox.append(h("label", { text: "Gemini key" }), geminiField, geminiSave, geminiClear, geminiState, geminiNote);
+  const showEngine = () => {
+    geminiBox.style.display = engine.value === "gemini" ? "" : "none";
+  };
+  engine.addEventListener("change", () => {
+    settings.voiceEngine = engine.value as Settings["voiceEngine"];
+    showEngine();
+    void save();
+  });
+  showEngine();
+  void refreshGemini();
+
   const screen = h("select", {}) as HTMLSelectElement;
   screen.append(
     h("option", { value: "primary", text: "Main display" }),
@@ -458,6 +522,11 @@ function generalSection(): HTMLElement {
         text: "Uses a voice installed on this computer. Online voices are never used, so your text stays here.",
       }),
     ),
+    h("div", { class: "row" },
+      h("label", { text: "Voice engine" }),
+      engine,
+    ),
+    geminiBox,
     h("div", { class: "row" },
       h("label", { text: "Voice input" }),
       voiceInput,

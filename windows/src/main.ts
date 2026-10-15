@@ -2,7 +2,7 @@
 
 import "./style.css";
 import { Bridge, IS_TAURI, onEvent } from "./core/bridge";
-import { refreshRecognizer } from "./voice/local";
+import { refreshVoice } from "./voice/engine";
 import { Sound } from "./core/sound";
 import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
@@ -24,7 +24,7 @@ async function main() {
   island.applySettings();
   State.loadIntegrationTasks();
   if (boot && !boot.cursorPoll) island.followPageCursor();
-  void refreshRecognizer(); // the mic shows only when a speech model is in place
+  void refreshVoice(); // the mic shows only when a voice engine is ready
 
   await onEvent<{ x: number; y: number }>("cursor", ({ x, y }) => island.onCursor(x, y));
 
@@ -69,6 +69,7 @@ async function main() {
     island.applySettings();
     State.loadIntegrationTasks();
     void refreshConfigured();
+    void refreshVoice(); // a different voice engine, or a new Gemini key
   });
 
   registerHookHandlers(island);

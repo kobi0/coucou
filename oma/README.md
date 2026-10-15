@@ -50,6 +50,8 @@ The small ones on the pills and in the compact grid are Oma too, each dyed purpl
 Voice on Windows: Pidgin/English language, reading replies aloud with local voices, and the hold-to-talk plumbing are
 in. Hearing is on-device (whisper.cpp, behind the `local-speech` build feature, with a model file the person adds);
 the code is written and its parts are tested, but it has not yet run on Windows or heard a real voice.
+The Pidgin and English voice can instead be Gemini Live (opt-in, Windows first; the Mac has no Gemini voice yet): the
+only path that sends the voice to a server, behind an explicit choice and a Gemini key the person adds.
 
 Not done: Oma in the Mac app (it still shows Mochi), and on Windows the greeting and the drop animation still show Mochi. Also the Nigerian outfits, the Pidgin varieties file, Oma sounds, the new app name and icon.
 

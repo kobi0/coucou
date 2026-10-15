@@ -94,9 +94,16 @@ export type RecognizerResult =
   | { kind: "nothing" }
   | { kind: "blocked" }
   | { kind: "unavailable" }
-  | { kind: "failed" };
+  | { kind: "failed" }
+  /** The engine could not start and has already told the person why (a line from the app, never the model). */
+  | { kind: "problem"; line: "needsGeminiKey" | "liveFailed" };
 
 export interface Recognizer {
+  /** True when the engine answers by itself, speaking and writing the reply (Gemini Live). The words it heard
+   *  are then not sent on to the chat model. */
+  readonly handlesReply?: boolean;
+  /** Where an engine that handles its own reply puts the words of the conversation, as they come. */
+  onText?: (role: "user" | "model", text: string) => void;
   /** Starts hearing. `onFinished` is called once, unless `cancel` is called first. */
   start(locales: string[], onPartial: (text: string) => void, onFinished: (result: RecognizerResult) => void): void;
   /** Stops recording and delivers the final words through `onFinished`. */

@@ -6,6 +6,7 @@ mod files;
 mod hooks;
 mod integrations;
 mod island;
+mod live;
 mod log;
 mod pipe;
 mod platform;
@@ -269,6 +270,8 @@ fn voice_lines(shared: State<'_, Shared>) -> serde_json::Value {
         "micBlocked": line(VoicePhrase::MicBlocked),
         "needsRecognizer": line(VoicePhrase::NeedsRecognizer),
         "restOnScreen": line(VoicePhrase::RestOnScreen),
+        "needsGeminiKey": line(VoicePhrase::NeedsGeminiKey),
+        "liveFailed": line(VoicePhrase::LiveFailed),
         "recognizerLocales": language.recognizer_locales(),
         "voiceLocales": language.voice_locales(),
     })
@@ -397,6 +400,70 @@ fn open_models_folder() {
     let dir = speech::models_dir();
     let _ = std::fs::create_dir_all(&dir);
     platform::reveal_folder(&dir.display().to_string());
+}
+
+/// Whether Gemini Live can be used: a key is saved. The key itself never leaves Rust.
+#[tauri::command]
+fn live_status(shared: State<'_, Shared>) -> serde_json::Value {
+    let settings = shared.settings.lock().unwrap();
+    serde_json::json!({
+        "hasKey": secrets::present("gemini-api-key"),
+        "model": settings.gemini_live_model,
+        "chosen": settings.voice_engine == "gemini",
+    })
+}
+
+/// Opens a Gemini Live conversation. Events (ready, sound, words, errors) come back on `events`.
+/// Only called once the person has chosen Gemini Live in Settings.
+#[tauri::command]
+fn live_open(
+    shared: State<'_, Shared>,
+    live: State<'_, live::Live>,
+    events: tauri::ipc::Channel<live::Event>,
+) -> Result<(), String> {
+    let (engine, language, model) = {
+        let s = shared.settings.lock().unwrap();
+        (
+            s.voice_engine.clone(),
+            coucou_assistant::VoiceLanguage::from_code(&s.voice_language),
+            s.gemini_live_model.clone(),
+        )
+    };
+    if engine != "gemini" {
+        return Err("not_chosen".into());
+    }
+    let Some(key) = secrets::get("gemini-api-key") else {
+        let _ = events.send(live::Event::Error { code: "no_key" });
+        let _ = events.send(live::Event::Closed);
+        return Ok(());
+    };
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    live.replace(Some(tx));
+    let url = coucou_assistant::live::endpoint(&key);
+    let setup = coucou_assistant::live::setup_message(&model, coucou_assistant::live::DEFAULT_VOICE, language);
+    tauri::async_runtime::spawn(live::run_session(url, setup, rx, move |e| {
+        let _ = events.send(e);
+    }));
+    Ok(())
+}
+
+/// One chunk of microphone audio (16 kHz mono 16-bit PCM) as the raw request body.
+#[tauri::command]
+fn live_audio(request: tauri::ipc::Request<'_>, live: State<'_, live::Live>) {
+    if let tauri::ipc::InvokeBody::Raw(bytes) = request.body() {
+        live.send(live::Cmd::Audio(bytes.clone()));
+    }
+}
+
+/// The mic button went down (`speaking` true) or came up.
+#[tauri::command]
+fn live_activity(live: State<'_, live::Live>, speaking: bool) {
+    live.send(if speaking { live::Cmd::Start } else { live::Cmd::End });
+}
+
+#[tauri::command]
+fn live_close(live: State<'_, live::Live>) {
+    live.replace(None);
 }
 
 #[tauri::command]
@@ -531,6 +598,7 @@ pub fn run() {
         .manage(Pending::default())
         .manage(Chat::default())
         .manage(VoiceMachine::new())
+        .manage(live::Live::default())
         .manage(Arc::new(speech::Engine::default()))
         .manage(assistant::Reminders::default())
         .invoke_handler(tauri::generate_handler![
@@ -552,6 +620,11 @@ pub fn run() {
             log_line,
             chat_send,
             voice_lines,
+            live_status,
+            live_open,
+            live_audio,
+            live_activity,
+            live_close,
             voice_recognizer_status,
             voice_transcribe,
             open_models_folder,

@@ -127,6 +127,9 @@ export interface Settings {
   speakReplies: boolean;
   /** Sends what was heard when the mic button is let go. Off puts it in the text box first. */
   voiceAutoSend: boolean;
+  /** What hears and speaks: this computer, or Gemini Live (online, needs a Gemini key). */
+  voiceEngine: "device" | "gemini";
+  geminiLiveModel?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -146,6 +149,7 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceLanguage: "en",
   speakReplies: false,
   voiceAutoSend: true,
+  voiceEngine: "device",
 };
 
 type Listener = () => void;

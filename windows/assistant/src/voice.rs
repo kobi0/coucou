@@ -29,16 +29,22 @@ pub enum VoicePhrase {
     MicBlocked,
     NeedsRecognizer,
     RestOnScreen,
+    /// Gemini Live is chosen but no key is saved.
+    NeedsGeminiKey,
+    /// The Gemini Live service could not be reached or stopped.
+    LiveFailed,
 }
 
 impl VoicePhrase {
-    pub const ALL: [VoicePhrase; 6] = [
+    pub const ALL: [VoicePhrase; 8] = [
         Self::Listening,
         Self::DidNotCatch,
         Self::CheckTheCard,
         Self::MicBlocked,
         Self::NeedsRecognizer,
         Self::RestOnScreen,
+        Self::NeedsGeminiKey,
+        Self::LiveFailed,
     ];
 }
 
@@ -87,6 +93,8 @@ impl VoiceLanguage {
                 MicBlocked => "I cannot hear you yet. Please allow the microphone in your system settings.",
                 NeedsRecognizer => "Voice input is not set up on this computer yet. You can type for now.",
                 RestOnScreen => "The rest is on the screen.",
+                NeedsGeminiKey => "Gemini voice needs your Gemini key. Please add it in Settings.",
+                LiveFailed => "I cannot reach the voice service right now. Please check your Gemini key and your connection, then try again.",
             },
             Self::Pidgin => match phrase {
                 Listening => "I dey listen…",
@@ -95,6 +103,8 @@ impl VoiceLanguage {
                 MicBlocked => "I no fit hear you yet. Abeg allow di microphone for system settings.",
                 NeedsRecognizer => "Voice input never set for dis computer yet. You fit type for now.",
                 RestOnScreen => "Di rest dey for screen.",
+                NeedsGeminiKey => "Gemini voice need your Gemini key. Abeg add am for Settings.",
+                LiveFailed => "I no fit reach di voice service now. Abeg check your Gemini key and your network, then try again.",
             },
         }
     }

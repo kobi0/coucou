@@ -12,6 +12,8 @@ export interface VoiceFlowHooks {
   send(text: string): void;
   /** Shows a line the app wrote (never the model). */
   say(line: string): void;
+  /** A piece of the words of a Gemini Live conversation: what the person said, or what the model said. */
+  liveText(role: "user" | "model", text: string): void;
   /** Called whenever listening starts or stops. */
   onListening(listening: boolean): void;
 }
@@ -51,6 +53,16 @@ export function createVoiceFlow(hooks: VoiceFlowHooks) {
       case "nothing": return run(await Bridge.voiceFinished(null));
       case "blocked": return run(await Bridge.voiceFailed("blocked"));
       case "unavailable": return run(await Bridge.voiceFailed("unavailable"));
+      case "problem": {
+        // The engine could not start. Say why in the assistant's language, then close the turn without
+        // the generic "did not catch that" hint.
+        const line = lines?.[result.line];
+        if (line) {
+          hooks.say(line);
+          if (State.settings.speakReplies && lines) Speaker.speak(line, lines.voiceLocales, true);
+        }
+        return run(await Bridge.voiceCancel());
+      }
       case "failed": return run(await Bridge.voiceFailed("failed"));
     }
   }
@@ -63,6 +75,7 @@ export function createVoiceFlow(hooks: VoiceFlowHooks) {
           if (!hearing) break;
           setListening(true);
           ticker = window.setInterval(() => void Bridge.voiceTick().then(run), 1000);
+          hearing.onText = hooks.liveText;
           hearing.start(
             lines?.recognizerLocales ?? ["en-GB"],
             (partial) => void Bridge.voiceHeard(partial).then((clean) => clean !== null && hooks.setDraft(clean)),
@@ -84,6 +97,8 @@ export function createVoiceFlow(hooks: VoiceFlowHooks) {
         case "send":
           stopTicking();
           setListening(false);
+          // Gemini Live answers by itself, so its words are not sent on to the chat model.
+          if (Hearing.get()?.handlesReply) break;
           if (State.settings.voiceAutoSend) {
             hooks.setDraft("");
             hooks.send(c.text);

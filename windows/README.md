@@ -100,6 +100,19 @@ as email addresses and times stay exact in either.
      huggingface.co/ggerganov/whisper.cpp. Coucou never downloads it for you.
   English models hear Nigerian-accented English well enough to try; both the English
   and Pidgin assistants are heard as English. Reopen the chat after adding the file.
+- **Gemini Live voice (opt-in).** **Settings → Voice engine → Gemini Live (online)**
+  makes the mic talk to Google's Gemini Live, which listens and answers in its own
+  voice, in English or Nigerian Pidgin as set under Assistant language. It is the
+  only choice that sends your voice anywhere: **while you hold the mic, what you say
+  goes to Google.** It needs a Gemini API key from Google AI Studio, saved in the
+  Windows Credential Manager and never in the page. The mic still opens only while
+  you hold it (Gemini is told when you start and stop). The conversation has no
+  tools: it can talk but cannot send an email or set a reminder, and its words are
+  shown in the chat as plain text. The model is `gemini-3.8-live`; if Google retires
+  it, put another in `settings.json` as `geminiLiveModel`. A Gemini session also
+  closes by itself after two quiet minutes.
+  This was written from Google's published reference and tested against a stand-in
+  server, not yet against the real service.
 - The hold-to-talk rules (a tap is dropped, a minute is the longest, silence gives a
   hint, never a message) are in `assistant/src/voice.rs`, tested, and match the Mac.
 

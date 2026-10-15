@@ -2,7 +2,7 @@
 // page is opened in a plain browser, so the island can be iterated on with
 // `npm run dev` alone.
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PendingAction, Settings } from "./state";
@@ -38,9 +38,18 @@ export interface VoiceLines {
   micBlocked: string;
   needsRecognizer: string;
   restOnScreen: string;
+  needsGeminiKey: string;
+  liveFailed: string;
   recognizerLocales: string[];
   voiceLocales: string[];
 }
+
+/** What a Gemini Live conversation reports. Errors are short codes the page turns into lines. */
+export type LiveEvent =
+  | { kind: "ready" | "interrupted" | "turnComplete" | "closed" }
+  | { kind: "audio"; data: string }
+  | { kind: "text"; role: "user" | "model"; text: string }
+  | { kind: "error"; code: "no_key" | "auth" | "connect" | "closed" };
 
 /** What the hold-to-talk machine in Rust asks the page to do next. */
 export type VoiceCommand =
@@ -106,6 +115,25 @@ export const Bridge = {
   /** A recorded clip (16 kHz mono 16-bit PCM) to words, on this computer. Rejects with a short code. */
   voiceTranscribe: (pcm: Uint8Array) => invoke<string | null>("voice_transcribe", pcm),
   openModelsFolder: () => call<void>("open_models_folder"),
+  /** Gemini Live: whether a key is saved, which model, and whether the person chose it. The key never leaves Rust. */
+  liveStatus: () => call<{ hasKey: boolean; model: string; chosen: boolean }>("live_status"),
+  /** Opens a spoken conversation. Events (ready, sound, words, errors) arrive on `onEvent`. */
+  liveOpen: async (onEvent: (e: LiveEvent) => void): Promise<boolean> => {
+    if (!IS_TAURI) return false;
+    const events = new Channel<LiveEvent>();
+    events.onmessage = onEvent;
+    try {
+      await invoke<void>("live_open", { events }); // returns nothing on success, so only a throw is a failure
+      return true;
+    } catch (err) {
+      console.error("[coucou] live_open failed", err);
+      return false;
+    }
+  },
+  /** One chunk of microphone audio, 16 kHz mono 16-bit PCM. */
+  liveAudio: (pcm: Uint8Array) => call<void>("live_audio", pcm as unknown as Record<string, unknown>),
+  liveActivity: (speaking: boolean) => call<void>("live_activity", { speaking }),
+  liveClose: () => call<void>("live_close"),
   voicePress: () => call<VoiceCommand[]>("voice_press"),
   voiceRelease: () => call<VoiceCommand[]>("voice_release"),
   voiceTick: () => call<VoiceCommand[]>("voice_tick"),
