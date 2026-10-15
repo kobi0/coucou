@@ -14,7 +14,7 @@ import { State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
 import { OmaEngine, preloadOma } from "../oma/engine";
 import { Greeting } from "../mochi/greeting";
-import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
+import { createMiniBot, pruneMiniBots, setMiniCharacter, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
@@ -872,9 +872,7 @@ export class Island {
       if (this.miniGrid.dataset.key !== key) {
         this.miniGrid.dataset.key = key;
         this.miniGrid.replaceChildren();
-        for (const t of others) {
-          this.miniGrid.append(createMiniBot(t, 13));
-        }
+        others.forEach((t, i) => this.miniGrid.append(createMiniBot(t, 13, i)));
         pruneMiniBots();
       }
     }
@@ -888,6 +886,7 @@ export class Island {
   private setCharacter(kind: "oma" | "mochi") {
     if (kind === this.characterKind) return;
     this.characterKind = kind;
+    setMiniCharacter(kind);
     const next = kind === "oma" ? new OmaEngine() : new BotEngine();
     next.onDizzy = () => this.handleDizzy();
     next.setState(State.effectiveState, true);

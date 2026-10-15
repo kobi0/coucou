@@ -45,8 +45,9 @@ Done: the assistant core (draft freely, act only on a click), the confirmation c
 expressions as pictures and a code-drawn Oma. Oma now lives in the Windows island (Settings → Character switches
 back to Mochi); if the pictures are missing she is drawn in code instead.
 
-Not done: Oma in the Mac app (it still shows Mochi), and on Windows the greeting, the drop animation and the pill
-mini bots still show Mochi. Also the Nigerian outfits, the Pidgin varieties file, Oma sounds, the new app name and icon.
+The small ones on the pills and in the compact grid are Oma too, each dyed purple, green, blue or army.
+
+Not done: Oma in the Mac app (it still shows Mochi), and on Windows the greeting and the drop animation still show Mochi. Also the Nigerian outfits, the Pidgin varieties file, Oma sounds, the new app name and icon.
 
 ## Licence and names
 

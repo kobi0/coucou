@@ -58,7 +58,33 @@ export function preloadOma(): Promise<void> {
   return loading;
 }
 
+/** The four body colours for the small Omas (pills and the compact grid), away from Mochi's colours. */
+export const OMA_MINI_COLORS = ["#8E5BD9", "#3FA66B", "#3E86E0", "#5E6B3A"] as const; // purple, green, blue, army
+
+const tinted = new Map<string, HTMLCanvasElement>();
+
+/** The sprite with her white body dyed `color`; the dark visor, glow and badges keep their shading. */
+function tintedSprite(img: HTMLImageElement, key: string, color: string): HTMLCanvasElement {
+  const id = `${key}|${color}`;
+  let c = tinted.get(id);
+  if (c) return c;
+  c = document.createElement("canvas");
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const g = c.getContext("2d")!;
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = "multiply";
+  g.fillStyle = color;
+  g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = "destination-in"; // multiply paints the empty corners too: cut back to her outline
+  g.drawImage(img, 0, 0);
+  tinted.set(id, c);
+  return c;
+}
+
 export class OmaEngine extends BotEngine {
+  /** Dye for the body (small Omas only); null keeps the sheet's white. */
+  bodyTint: string | null = null;
   private shown: Expression = "idle";
   private shownSince = performance.now();
 
@@ -92,7 +118,7 @@ export class OmaEngine extends BotEngine {
     const img = sprites!.image(expression)!;
     // Every expression is drawn at one scale, set by the idle one, so she never changes size between them.
     const ref = sprites!.metrics("idle")!;
-    const s = Math.min((0.66 * W) / ref.bodyWidth, (0.8 * W) / ref.bodyHeight);
+    const s = Math.min((0.66 * W) / ref.bodyWidth, (0.8 * W) / ref.bodyHeight) * (this.isMini ? 0.85 : 1);
     const feetY = cy + (ref.bodyHeight * s) / 2;
     ctx.save();
     ctx.imageSmoothingEnabled = true;
@@ -100,7 +126,8 @@ export class OmaEngine extends BotEngine {
     ctx.translate(cx, feetY);
     if (this.tilt !== 0) ctx.rotate(this.tilt);
     ctx.scale(this.sx * pop, this.sy * pop);
-    ctx.drawImage(img, -ref.centerX * s, -ref.bodyBottom * s, SPRITE_WIDTH * s, SPRITE_HEIGHT * s);
+    const source = this.bodyTint ? tintedSprite(img, expression, this.bodyTint) : img;
+    ctx.drawImage(source, -ref.centerX * s, -ref.bodyBottom * s, SPRITE_WIDTH * s, SPRITE_HEIGHT * s);
     ctx.restore();
   }
 
