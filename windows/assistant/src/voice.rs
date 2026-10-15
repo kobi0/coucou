@@ -103,7 +103,7 @@ impl VoiceLanguage {
     pub fn style_prompt(self) -> &'static str {
         match self {
             Self::English => "",
-            Self::Pidgin => " Write every reply in Nigerian Pidgin English, the way a friendly person in Lagos would talk, in plain easy words (na, dey, wetin, abeg, make, don, go, wan, sabi, no wahala, how far). Keep it clear first: do not overdo the slang and do not mock the language. Never change names, numbers, dates, times, email addresses, links or code: write those exactly as they are. When you call a tool, its arguments stay in standard form (full email addresses, ISO 8601 times) whatever language you are speaking. Answer in Pidgin even when the user writes in another language, unless they ask you to change.",
+            Self::Pidgin => " Write every reply in Nigerian Pidgin English, Lagos-influenced, the way a warm, street-smart, friendly person in Lagos would talk, in plain easy words (na, dey, wetin, abeg, make, don, go, wan, sabi, no wahala, how far). Be friendly and approachable, never exaggerated or comedic. Keep it clear first: do not overdo the slang and do not mock the language. Never change names, numbers, dates, times, email addresses, links or code: write those exactly as they are. When you call a tool, its arguments stay in standard form (full email addresses, ISO 8601 times) whatever language you are speaking. Answer in Pidgin even when the user writes in another language, unless they ask you to change.",
         }
     }
 }
@@ -307,6 +307,7 @@ mod tests {
         assert_eq!(VoiceLanguage::English.style_prompt(), "");
         let p = VoiceLanguage::Pidgin.style_prompt();
         assert!(p.contains("Pidgin") && p.contains("ISO 8601") && p.contains("email addresses"));
+        assert!(p.contains("Lagos-influenced") && p.contains("street-smart") && p.contains("never exaggerated or comedic"));
     }
 
     #[test]
