@@ -1,6 +1,6 @@
 # Cuts the 30-expression character sheet (6 x 5 grid, navy background) into one transparent PNG per
 # expression plus manifest.json. Usage: python3 slice-oma-sheet.py <sheet.png> <output folder>
-# The pictures go in windows/public/oma. Needs numpy, scipy and Pillow.
+# The pictures go in oma/character/sprites. Needs numpy, scipy and Pillow.
 import sys, json
 import numpy as np
 from PIL import Image
