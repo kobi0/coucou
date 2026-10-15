@@ -68,6 +68,14 @@ for idx, name in enumerate(NAMES):
     out = Image.new("RGBA", (OW, OH), (0, 0, 0, 0))
     out.alpha_composite(img, (int(round(ANCHOR_X - cx)), TOP))
     out.save(f"{OUT}/{idx+1:02d}-{name}.png", optimize=True)
-    meta[name] = {"file": f"{idx+1:02d}-{name}.png", "bodyHeight": int(ys.max() - ys.min()), "bodyWidth": int(xs.max() - xs.min())}
+    # Where the body is on the shared canvas, so an app can stand every expression on the same spot.
+    meta[name] = {
+        "file": f"{idx+1:02d}-{name}.png",
+        "bodyWidth": int(xs.max() - xs.min()),
+        "bodyHeight": int(ys.max() - ys.min()),
+        "bodyTop": int(ys.min() + TOP),
+        "bodyBottom": int(ys.max() + TOP),
+        "centerX": ANCHOR_X,
+    }
 json.dump(meta, open(f"{OUT}/manifest.json", "w"), indent=1)
 print("ok", len(meta))

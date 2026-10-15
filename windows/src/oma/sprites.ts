@@ -30,8 +30,14 @@ export const EXPRESSION_FOR_STATE: Record<OmaState, Expression> = {
   working: "searching",
 };
 
-interface ManifestEntry {
+/** Where the body is on the shared canvas, in picture pixels (set by oma/character/slice-sheet.py). */
+export interface SpriteMetrics {
   file: string;
+  bodyWidth: number;
+  bodyHeight: number;
+  bodyTop: number;
+  bodyBottom: number;
+  centerX: number;
 }
 
 /** Size of every picture, in pixels. They share one canvas, so they line up when you swap them. */
@@ -39,15 +45,19 @@ export const SPRITE_WIDTH = 256;
 export const SPRITE_HEIGHT = 220;
 
 export class OmaSprites {
-  private constructor(private readonly images: Map<Expression, HTMLImageElement>) {}
+  private constructor(
+    private readonly images: Map<Expression, HTMLImageElement>,
+    private readonly sizes: Map<Expression, SpriteMetrics>,
+  ) {}
 
   /** Loads all 30 pictures. Null when any is missing, so a half-drawn Oma is never shown. */
   static async load(base = "/oma/"): Promise<OmaSprites | null> {
     try {
       const response = await fetch(`${base}manifest.json`);
       if (!response.ok) return null;
-      const manifest = (await response.json()) as Record<string, ManifestEntry>;
+      const manifest = (await response.json()) as Record<string, SpriteMetrics>;
       const images = new Map<Expression, HTMLImageElement>();
+      const sizes = new Map<Expression, SpriteMetrics>();
       await Promise.all(
         EXPRESSIONS.map(async (name) => {
           const entry = manifest[name];
@@ -56,12 +66,22 @@ export class OmaSprites {
           img.src = `${base}${entry.file}`;
           await img.decode();
           images.set(name, img);
+          sizes.set(name, entry);
         }),
       );
-      return new OmaSprites(images);
+      return new OmaSprites(images, sizes);
     } catch {
       return null;
     }
+  }
+
+  metrics(expression: Expression): SpriteMetrics | undefined {
+    return this.sizes.get(expression);
+  }
+
+  /** The picture itself, for callers that place it with their own transform. */
+  image(expression: Expression): HTMLImageElement | undefined {
+    return this.images.get(expression);
   }
 
   has(expression: Expression): boolean {

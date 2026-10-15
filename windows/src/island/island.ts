@@ -12,6 +12,7 @@ import {
 import { Sound } from "../core/sound";
 import { State } from "../core/state";
 import { BotEngine, hexToRGB } from "../mochi/engine";
+import { OmaEngine, preloadOma } from "../oma/engine";
 import { Greeting } from "../mochi/greeting";
 import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../mochi/minibots";
 import { UploadCanvas } from "../upload/canvas";
@@ -58,7 +59,8 @@ export class Island {
   private botCy = new Spring(16);
   private botSize = new Spring(10);
 
-  private engine = new BotEngine();
+  private engine: BotEngine = new BotEngine();
+  private characterKind: "oma" | "mochi" = "mochi";
   private greeting = new Greeting();
 
   private running = false;
@@ -882,7 +884,27 @@ export class Island {
   }
 
   /** Applies settings coming from Rust at boot. */
+  /** Swaps the character in the island. Oma and Mochi share one engine, so nothing else has to change. */
+  private setCharacter(kind: "oma" | "mochi") {
+    if (kind === this.characterKind) return;
+    this.characterKind = kind;
+    const next = kind === "oma" ? new OmaEngine() : new BotEngine();
+    next.onDizzy = () => this.handleDizzy();
+    next.setState(State.effectiveState, true);
+    this.engine = next;
+    if (kind === "oma") {
+      // Her pictures load once. Until they have, the code-drawn Oma stands in.
+      void preloadOma().then(() => {
+        this.dirty = true;
+        this.ensureRunning();
+      });
+    }
+    this.dirty = true;
+    this.ensureRunning();
+  }
+
   applySettings() {
+    this.setCharacter(State.settings.character === "mochi" ? "mochi" : "oma");
     Sound.setEnabled(State.settings.soundEnabled);
     Sound.setVolume(State.settings.soundVolume);
     this.fsm.homeToPetitDelay = State.settings.autoCloseInterval;

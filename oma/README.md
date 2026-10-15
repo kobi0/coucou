@@ -42,10 +42,11 @@ sheet would make them sharper without changing anything else.
 ## Status
 
 Done: the assistant core (draft freely, act only on a click), the confirmation card, voice on the Mac, the 30
-expressions as pictures and a code-drawn Oma.
+expressions as pictures and a code-drawn Oma. Oma now lives in the Windows island (Settings → Character switches
+back to Mochi); if the pictures are missing she is drawn in code instead.
 
-Not done: Oma in the Windows island and the Mac app (they still show Mochi), the Nigerian outfits, the Pidgin
-varieties file, Oma sounds, the new app name and icon.
+Not done: Oma in the Mac app (it still shows Mochi), and on Windows the greeting, the drop animation and the pill
+mini bots still show Mochi. Also the Nigerian outfits, the Pidgin varieties file, Oma sounds, the new app name and icon.
 
 ## Licence and names
 

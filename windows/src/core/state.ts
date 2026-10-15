@@ -117,6 +117,8 @@ export interface Settings {
   hooksInstalled: boolean;
   /** Claude model used by the chat. */
   model: string;
+  /** The character in the island. */
+  character: "oma" | "mochi";
   /** Lets the chat prepare emails and set reminders, each behind a card the user must click. */
   assistantTools: boolean;
 }
@@ -133,6 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   hooksInstalled: false,
   model: "claude-opus-5",
+  character: "oma",
   assistantTools: false,
 };
 

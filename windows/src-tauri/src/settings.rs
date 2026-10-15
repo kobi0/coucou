@@ -20,9 +20,16 @@ pub struct Settings {
     /// Defaulted explicitly so a settings.json written by an older build still loads.
     #[serde(default = "default_model")]
     pub model: String,
+    /// The character in the island: "oma" or "mochi".
+    #[serde(default = "default_character")]
+    pub character: String,
     /// Lets the chat prepare emails and set reminders, each behind a card the user must click. Off by default.
     #[serde(default)]
     pub assistant_tools: bool,
+}
+
+fn default_character() -> String {
+    "oma".to_string()
 }
 
 fn default_model() -> String {
@@ -46,6 +53,7 @@ impl Default for Settings {
             autostart: false,
             hooks_installed: false,
             model: default_model(),
+            character: default_character(),
             assistant_tools: false,
         }
     }
