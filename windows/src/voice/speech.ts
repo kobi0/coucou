@@ -6,45 +6,7 @@
 // Hearing goes through a `Recognizer`. None ships yet, so the mic button stays hidden until one is plugged in
 // with `setRecognizer`. What is heard is only ever text for the chat box. It can never approve an action.
 
-export interface SpokenText {
-  text: string;
-  truncated: boolean;
-}
-
-const SPEAKABLE_LIMIT = 600;
-
-/** Turns a reply into something worth reading aloud: no code, links or marks, one sentence per line. */
-export function speakable(markdown: string, limit = SPEAKABLE_LIMIT): SpokenText | null {
-  let text = markdown.replace(/[​-‏‪-‮⁠-⁤﻿]/g, "");
-  const steps: [RegExp, string][] = [
-    [/```[\s\S]*?```/g, " "], // code blocks are on the screen
-    [/!\[[^\]]*\]\([^)]*\)/g, " "], // images
-    [/\[([^\]]*)\]\([^)]*\)/g, "$1"], // links keep their words
-    [/https?:\/\/\S+/g, " "], // bare links
-    [/`+/g, ""], // inline code marks
-    [/^[ \t]*#{1,6}[ \t]*/gm, ""], // headings
-    [/^[ \t]*(?:[-*•]|\d+[.)])[ \t]+/gm, ""], // list marks
-    [/[*~]+/g, ""], // bold, italic, strike marks
-  ];
-  for (const [pattern, template] of steps) text = text.replace(pattern, template);
-
-  const sentences: string[] = [];
-  for (const raw of text.split(/\r\n|[\r\n\u2028\u2029]/)) {
-    const line = raw.split(/\s+/).filter(Boolean).join(" ");
-    if (!line) continue;
-    sentences.push(".!?:;,…".includes(line[line.length - 1]) ? line : line + ".");
-  }
-  const joined = sentences.join(" ");
-  if (!joined) return null;
-  const chars = Array.from(joined);
-  if (chars.length <= limit) return { text: joined, truncated: false };
-
-  const head = chars.slice(0, limit).join("");
-  let cut = -1;
-  for (const t of [". ", "! ", "? "]) cut = Math.max(cut, head.lastIndexOf(t));
-  const body = (cut > 0 ? head.slice(0, cut + 1) : head).trim();
-  return { text: body, truncated: true };
-}
+export { speakable, type SpokenText } from "./text";
 
 // ── Reading aloud ─────────────────────────────────────────────────────────────
 

@@ -1,0 +1,167 @@
+{
+  "about": "ActionPolicy.stripHidden (Swift) and text::strip_hidden (Rust) must agree on every case.",
+  "cases": [
+    {
+      "name": "plain text is left alone",
+      "input": "Call Mum at 4",
+      "keepLineBreaks": true,
+      "expected": "Call Mum at 4"
+    },
+    {
+      "name": "right-to-left override is removed",
+      "input": "he\u202ello",
+      "keepLineBreaks": true,
+      "expected": "hello"
+    },
+    {
+      "name": "zero-width space is removed",
+      "input": "a\u200bb",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "zero-width joiner and non-joiner stay",
+      "input": "a\u200db\u200cc",
+      "keepLineBreaks": true,
+      "expected": "a\u200db\u200cc"
+    },
+    {
+      "name": "emoji joiner sequences stay",
+      "input": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67",
+      "keepLineBreaks": true,
+      "expected": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67"
+    },
+    {
+      "name": "tag characters are removed",
+      "input": "a\udb40\udc41b",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "soft hyphen is removed",
+      "input": "a\u00adb",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "byte order mark is removed",
+      "input": "a\ufeffb",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "private use is removed",
+      "input": "a\ue000b",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "nul is removed",
+      "input": "a\u0000b",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "delete is removed",
+      "input": "a\u007fb",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "carriage return is removed",
+      "input": "a\rb",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "next line is removed",
+      "input": "a\u0085b",
+      "keepLineBreaks": true,
+      "expected": "ab"
+    },
+    {
+      "name": "newline kept when asked",
+      "input": "a\nb",
+      "keepLineBreaks": true,
+      "expected": "a\nb"
+    },
+    {
+      "name": "newline becomes a space otherwise",
+      "input": "a\nb",
+      "keepLineBreaks": false,
+      "expected": "a b"
+    },
+    {
+      "name": "tab kept when asked",
+      "input": "a\tb",
+      "keepLineBreaks": true,
+      "expected": "a\tb"
+    },
+    {
+      "name": "tab becomes a space otherwise",
+      "input": "a\tb",
+      "keepLineBreaks": false,
+      "expected": "a b"
+    },
+    {
+      "name": "line separator becomes a newline",
+      "input": "a\u2028b",
+      "keepLineBreaks": true,
+      "expected": "a\nb"
+    },
+    {
+      "name": "line separator becomes a space otherwise",
+      "input": "a\u2028b",
+      "keepLineBreaks": false,
+      "expected": "a b"
+    },
+    {
+      "name": "paragraph separator becomes a newline",
+      "input": "a\u2029b",
+      "keepLineBreaks": true,
+      "expected": "a\nb"
+    },
+    {
+      "name": "paragraph separator becomes a space otherwise",
+      "input": "a\u2029b",
+      "keepLineBreaks": false,
+      "expected": "a b"
+    },
+    {
+      "name": "non-breaking space stays",
+      "input": "a\u00a0b",
+      "keepLineBreaks": true,
+      "expected": "a\u00a0b"
+    },
+    {
+      "name": "stacked accents are cut to four",
+      "input": "a\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301\u0301",
+      "keepLineBreaks": true,
+      "expected": "a\u0301\u0301\u0301\u0301"
+    },
+    {
+      "name": "the accent count starts again after a letter",
+      "input": "a\u0301\u0301\u0301\u0301\u0301b\u0301",
+      "keepLineBreaks": true,
+      "expected": "a\u0301\u0301\u0301\u0301b\u0301"
+    },
+    {
+      "name": "an enclosing mark counts too",
+      "input": "a\u20dd\u20dd\u20dd\u20dd\u20dd",
+      "keepLineBreaks": true,
+      "expected": "a\u20dd\u20dd\u20dd\u20dd"
+    },
+    {
+      "name": "empty stays empty",
+      "input": "",
+      "keepLineBreaks": true,
+      "expected": ""
+    },
+    {
+      "name": "accented letters stay",
+      "input": "caf\u00e9 \u00fcber",
+      "keepLineBreaks": true,
+      "expected": "caf\u00e9 \u00fcber"
+    }
+  ]
+}

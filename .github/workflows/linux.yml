@@ -20,6 +20,7 @@ on:
   pull_request:
     paths:
       - 'windows/**'
+      - 'tests/vectors/**'
       - '.github/workflows/linux.yml'
 
 permissions:
@@ -78,6 +79,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # The same cases run in Swift (scripts/test-assistant-core.sh) and Rust (cargo test, below).
+      - name: Shared test vectors
+        run: npm run test:vectors
 
       # Same check as the Windows workflow: three files carry the version.
       - name: Check the tag and every version agree

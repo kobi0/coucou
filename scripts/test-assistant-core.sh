@@ -26,3 +26,5 @@ swiftc "${CORE[@]}" tests/AssistantSessionTests.swift -o "$TEST_DIR/assistant-se
 "$TEST_DIR/assistant-session-tests"
 swiftc "${CORE[@]}" tests/VoiceTests.swift -o "$TEST_DIR/voice-tests"
 "$TEST_DIR/voice-tests"
+swiftc "${CORE[@]}" tests/VectorTests.swift -o "$TEST_DIR/vector-tests"
+"$TEST_DIR/vector-tests"

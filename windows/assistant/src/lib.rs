@@ -6,7 +6,10 @@
 //! click, and keeps the ledger of what the model is owed. It never runs a tool and never touches the network.
 //!
 //! It is the same design as the Swift core in NotchBuddy/Sources/CoucouKit/Assistant, kept in step by hand.
-//! The two share their test vectors by copy, so a rule that changes in one must change in the other.
+//! The two share test vectors in tests/vectors/*.json (hidden characters, voice text, hold-to-talk). Swift runs them
+//! in tests/VectorTests.swift, Rust in tests/vectors.rs, and the TypeScript for reading aloud in
+//! windows/scripts/test-vectors.mjs, so a rule that drifts in one place fails in CI. The policy, parsers and tool
+//! rules are not shared yet: they are still tested on each side separately.
 
 pub mod catalog;
 pub mod exec;
