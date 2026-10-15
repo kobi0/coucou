@@ -16,7 +16,8 @@ use serde_json::{json, Value};
 
 use crate::chat::{self, Chat, ChatContext, ChatReply, ModelInfo};
 use crate::i18n::{t, tf};
-use crate::{net, secrets};
+use crate::{assistant, net, secrets};
+use tauri::AppHandle;
 
 /// Credential store entry of the Anthropic API key.
 pub const KEY: &str = "anthropic-api-key";
@@ -88,14 +89,22 @@ fn user_content(first: bool, context: Option<&ChatContext>, query: &str) -> Vec<
     content
 }
 
+#[cfg(test)]
 fn request_body(model: &str, system: &str, history: &[Value], user: &Value) -> Value {
+    request_body_with(model, system, history, user, &[])
+}
+
+/// The same, with the assistant's own tools (assistant.rs) next to web search.
+fn request_body_with(model: &str, system: &str, history: &[Value], user: &Value, extra_tools: &[Value]) -> Value {
     let mut messages = history.to_vec();
     messages.push(user.clone());
+    let mut tools = vec![json!({ "type": "web_search_20260209", "name": "web_search", "max_uses": 5 })];
+    tools.extend(extra_tools.iter().cloned());
     json!({
         "model": model,
         "max_tokens": MAX_TOKENS,
         "system": system,
-        "tools": [{ "type": "web_search_20260209", "name": "web_search", "max_uses": 5 }],
+        "tools": tools,
         "fallbacks": "default",
         "messages": messages,
     })
@@ -116,7 +125,13 @@ pub fn response_text(content: &[Value]) -> Option<String> {
 }
 
 /// The content blocks to keep in the history and the text to show, or why there are none.
+#[cfg(test)]
 fn interpret(response: &Value) -> Result<(Vec<Value>, String), String> {
+    interpret_with(response, false)
+}
+
+/// With assistant tools on, a reply may be only a tool call and carry no text.
+fn interpret_with(response: &Value, tools_on: bool) -> Result<(Vec<Value>, String), String> {
     // A policy decline comes back as HTTP 200 with stop_reason "refusal".
     if response.get("stop_reason").and_then(Value::as_str) == Some("refusal") {
         let why = response
@@ -131,8 +146,20 @@ fn interpret(response: &Value) -> Result<(Vec<Value>, String), String> {
         .and_then(Value::as_array)
         .cloned()
         .ok_or_else(|| t("Unexpected API response."))?;
-    let text = response_text(&blocks).ok_or_else(|| t("No response text."))?;
+    let has_tool_call = tools_on && blocks.iter().any(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"));
+    let text = match response_text(&blocks) {
+        Some(text) => text,
+        None if has_tool_call => String::new(),
+        None => return Err(t("No response text.")),
+    };
     Ok((blocks, text))
+}
+
+/// What the island's own chat adds: the assistant's actions (assistant.rs). The phone's chat passes none.
+pub struct Assist<'a> {
+    pub app: &'a AppHandle,
+    /// The Settings switch for assistant actions. A conversation that already used them keeps them.
+    pub tools_setting: bool,
 }
 
 /// One chat turn. Returns the assistant's text, or a message the island shows
@@ -142,22 +169,49 @@ pub async fn send(
     model: &str,
     query: String,
     context: Option<ChatContext>,
+    assist: Option<Assist<'_>>,
 ) -> Result<ChatReply, String> {
     let key = secrets::get(KEY).ok_or_else(|| t("API key missing. Open settings."))?;
     let endpoint = endpoint()?;
 
     let turn = chat.begin(chat::ANTHROPIC);
-    let user = json!({ "role": "user", "content": user_content(turn.first, context.as_ref(), &query) });
-    let body = request_body(model, &chat::system_prompt(true), &turn.history, &user);
+    let mut content = user_content(turn.first, context.as_ref(), &query);
+    let mut system = chat.prompt(true);
+    let mut tools: Vec<Value> = Vec::new();
+    let tools_on = assist.as_ref().is_some_and(|a| assistant::tools_on(chat, a.tools_setting));
+    // A file or window is outside content: whatever the model asks for after reading it is checked, even
+    // if the switch for actions is turned on later in the same conversation.
+    if turn.first && context.is_some() {
+        assistant::note_outside_content(chat);
+    }
+    if tools_on {
+        // The model must be answered about every tool call it made, before anything else in this message.
+        let mut lead = assistant::feedback_blocks(chat);
+        lead.append(&mut content);
+        content = lead;
+        tools = assistant::tool_definitions(chat);
+        system.push_str(&assistant::tools_prompt());
+    }
+    let user = json!({ "role": "user", "content": content });
+    let body = request_body_with(model, &system, &turn.history, &user, &tools);
 
     let response = call(&endpoint, &key, &body).await?;
-    let (blocks, text) = interpret(&response)?;
+    let (blocks, text) = interpret_with(&response, tools_on)?;
+    // The request went through, so the answers it carried are not offered again.
+    if tools_on {
+        assistant::feedback_sent(chat);
+    }
 
     // Store the whole content — tool_use / tool_result blocks included — so the
     // next turn has the right context.
     let plain = chat::plain_question(turn.first, context.as_ref(), &query);
-    chat.commit(&turn, user, json!({ "role": "assistant", "content": blocks }), &plain, &text);
-    Ok(ChatReply { text })
+    chat.commit(&turn, user, json!({ "role": "assistant", "content": blocks.clone() }), &plain, &text);
+    // Safe tool calls run now, the rest wait for a click on a card.
+    let outcome = match &assist {
+        Some(a) => assistant::handle_reply(a.app, chat, &blocks, tools_on),
+        None => Default::default(),
+    };
+    Ok(ChatReply { text, notices: outcome.notices, actions: outcome.actions })
 }
 
 /// One question, one answer, no history: the dictation clean-up and the notes

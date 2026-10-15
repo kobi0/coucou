@@ -97,6 +97,21 @@ pub struct Settings {
     pub phone_relay: bool,
     /// The relay's address (`wss://…`), empty until the user enters it. Not a secret. Owned by Rust.
     pub phone_relay_url: String,
+    /// The character in the island and the small pills: "oma" or "mochi".
+    pub character: String,
+    /// Lets the chat prepare emails and set reminders, each behind a card the user must click. Off by default.
+    pub assistant_tools: bool,
+    /// The assistant's language: "en" or "pcm" (Nigerian Pidgin).
+    pub voice_language: String,
+    /// Reads replies aloud with a voice on this computer. Off by default.
+    pub speak_replies: bool,
+    /// Sends what was heard as soon as the mic button is let go. Off puts it in the text box to check first.
+    pub voice_auto_send: bool,
+    /// What hears and speaks: "device" (hold-to-talk on this computer) or "gemini" (Gemini Live, which sends
+    /// the voice to Google and needs a Gemini key). Off until chosen.
+    pub voice_engine: String,
+    /// The Gemini Live model. A setting, so a retired model can be swapped without a new build.
+    pub gemini_live_model: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -162,6 +177,13 @@ impl Default for Settings {
             phone_services: Vec::new(),
             phone_relay: false,
             phone_relay_url: String::new(),
+            character: "oma".into(),
+            assistant_tools: false,
+            voice_language: "en".into(),
+            speak_replies: false,
+            voice_auto_send: true,
+            voice_engine: "device".into(),
+            gemini_live_model: coucou_assistant::live::DEFAULT_MODEL.into(),
         }
     }
 }
@@ -448,7 +470,14 @@ mod tests {
   "phoneUsage": true,
   "phoneServices": ["integration_stripe"],
   "phoneRelay": true,
-  "phoneRelayUrl": "wss://relay.example.workers.dev"
+  "phoneRelayUrl": "wss://relay.example.workers.dev",
+  "character": "mochi",
+  "assistantTools": true,
+  "voiceLanguage": "pcm",
+  "speakReplies": true,
+  "voiceAutoSend": false,
+  "voiceEngine": "gemini",
+  "geminiLiveModel": "models/some-live-model"
 }"##;
 
     fn custom() -> Value {
@@ -956,6 +985,13 @@ mod tests {
                 "phoneServices",
                 "phoneRelay",
                 "phoneRelayUrl",
+                "character",
+                "assistantTools",
+                "voiceLanguage",
+                "speakReplies",
+                "voiceAutoSend",
+                "voiceEngine",
+                "geminiLiveModel",
             ]
         );
         let _ = std::fs::remove_dir_all(&dir);

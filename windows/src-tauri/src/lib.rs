@@ -2,6 +2,7 @@
 
 mod agent_hooks;
 mod agents;
+mod assistant;
 mod chat;
 mod claude;
 mod codex_plan;
@@ -10,11 +11,13 @@ mod desktop;
 mod files;
 mod flow;
 mod github;
+mod hearing;
 mod hooks;
 mod i18n;
 mod identity;
 mod integrations;
 mod island;
+mod live;
 mod local_chat;
 mod log;
 mod net;
@@ -515,8 +518,216 @@ fn local_set_key(url: String, key: String) -> Result<(), String> {
     local_chat::set_custom_key(&url, &key)
 }
 
+/// The fixed lines the app says by itself (hints while listening, and so on), in the assistant's language.
+/// They come from here, never from the model.
+#[tauri::command]
+fn voice_lines(shared: State<'_, Shared>) -> serde_json::Value {
+    use coucou_assistant::{VoiceLanguage, VoicePhrase};
+    let language = VoiceLanguage::from_code(&shared.settings.lock().unwrap().voice_language);
+    let line = |p| language.phrase(p);
+    serde_json::json!({
+        "listening": line(VoicePhrase::Listening),
+        "didNotCatch": line(VoicePhrase::DidNotCatch),
+        "checkTheCard": line(VoicePhrase::CheckTheCard),
+        "micBlocked": line(VoicePhrase::MicBlocked),
+        "needsRecognizer": line(VoicePhrase::NeedsRecognizer),
+        "restOnScreen": line(VoicePhrase::RestOnScreen),
+        "needsGeminiKey": line(VoicePhrase::NeedsGeminiKey),
+        "liveFailed": line(VoicePhrase::LiveFailed),
+        "recognizerLocales": language.recognizer_locales(),
+        "voiceLocales": language.voice_locales(),
+    })
+}
+
+/// The hold-to-talk state machine lives here, once, so the rules (a tap is dropped, a minute is the longest,
+/// silence is a hint and never a message) are the tested ones in coucou-assistant.
+struct VoiceMachine {
+    session: Mutex<coucou_assistant::VoiceSession>,
+    clock: std::time::Instant,
+}
+
+impl VoiceMachine {
+    fn new() -> Self {
+        Self { session: Mutex::new(Default::default()), clock: std::time::Instant::now() }
+    }
+
+    fn now(&self) -> f64 {
+        self.clock.elapsed().as_secs_f64()
+    }
+
+    /// Commands for the page, with every hint already in the assistant's language.
+    fn commands(
+        &self,
+        shared: &Shared,
+        commands: Vec<coucou_assistant::VoiceCommand>,
+    ) -> Vec<serde_json::Value> {
+        use coucou_assistant::VoiceCommand as C;
+        let language =
+            coucou_assistant::VoiceLanguage::from_code(&shared.settings.lock().unwrap().voice_language);
+        commands
+            .into_iter()
+            .map(|c| match c {
+                C::StartListening => serde_json::json!({ "kind": "start" }),
+                C::StopListening => serde_json::json!({ "kind": "stop" }),
+                C::Discard => serde_json::json!({ "kind": "discard" }),
+                C::Send(text) => serde_json::json!({ "kind": "send", "text": text }),
+                C::Hint(phrase) => serde_json::json!({ "kind": "hint", "text": language.phrase(phrase) }),
+            })
+            .collect()
+    }
+}
+
+#[tauri::command]
+fn voice_press(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().press(voice.now());
+    voice.commands(&shared, out)
+}
+
+#[tauri::command]
+fn voice_release(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().release(voice.now());
+    voice.commands(&shared, out)
+}
+
+#[tauri::command]
+fn voice_tick(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().tick(voice.now());
+    voice.commands(&shared, out)
+}
+
+/// The words so far. Returns them cleaned, for the text box.
+#[tauri::command]
+fn voice_heard(voice: State<'_, VoiceMachine>, text: String) -> String {
+    let mut session = voice.session.lock().unwrap();
+    session.heard(&text);
+    session.partial().to_string()
+}
+
+#[tauri::command]
+fn voice_finished(
+    shared: State<'_, Shared>,
+    voice: State<'_, VoiceMachine>,
+    transcript: Option<String>,
+) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().finished(transcript.as_deref());
+    voice.commands(&shared, out)
+}
+
+/// `reason` is "blocked", "unavailable" or anything else.
+#[tauri::command]
+fn voice_failed(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>, reason: String) -> Vec<serde_json::Value> {
+    use coucou_assistant::VoiceFailure as F;
+    let failure = match reason.as_str() {
+        "blocked" => F::MicBlocked,
+        "unavailable" => F::Unavailable,
+        _ => F::Other,
+    };
+    let out = voice.session.lock().unwrap().failed(failure);
+    voice.commands(&shared, out)
+}
+
+#[tauri::command]
+fn voice_cancel(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().cancel();
+    voice.commands(&shared, out)
+}
+
+/// Whether hold-to-talk can hear on this computer: the dictation model (Settings → Dictation) is downloaded.
+#[tauri::command]
+fn voice_recognizer_status() -> hearing::RecognizerStatus {
+    hearing::status()
+}
+
+/// Turns a recorded clip (16 kHz mono 16-bit PCM, sent as the raw request body) into words, on this computer.
+/// Errors are short codes the page maps to hints: "no_model", "too_long", anything else is a failure. Nothing is
+/// kept: the audio is dropped when this returns.
+#[tauri::command]
+async fn voice_transcribe(request: tauri::ipc::Request<'_>) -> Result<Option<String>, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("bad_audio".into());
+    };
+    let bytes = bytes.clone();
+    tauri::async_runtime::spawn_blocking(move || hearing::transcribe(&bytes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Opens the folder where the speech model lives (created if needed) in the file manager.
+#[tauri::command]
+fn open_models_folder() {
+    let dir = speech::models_dir();
+    let _ = std::fs::create_dir_all(&dir);
+    platform::reveal_folder(&dir.display().to_string());
+}
+
+/// Whether Gemini Live can be used: a key is saved. The key itself never leaves Rust.
+#[tauri::command]
+fn live_status(shared: State<'_, Shared>) -> serde_json::Value {
+    let settings = shared.settings.lock().unwrap();
+    serde_json::json!({
+        "hasKey": secrets::present("gemini-api-key"),
+        "model": settings.gemini_live_model,
+        "chosen": settings.voice_engine == "gemini",
+    })
+}
+
+/// Opens a Gemini Live conversation. Events (ready, sound, words, errors) come back on `events`.
+/// Only called once the person has chosen Gemini Live in Settings.
+#[tauri::command]
+fn live_open(
+    shared: State<'_, Shared>,
+    live: State<'_, live::Live>,
+    events: tauri::ipc::Channel<live::Event>,
+) -> Result<(), String> {
+    let (engine, language, model) = {
+        let s = shared.settings.lock().unwrap();
+        (
+            s.voice_engine.clone(),
+            coucou_assistant::VoiceLanguage::from_code(&s.voice_language),
+            s.gemini_live_model.clone(),
+        )
+    };
+    if engine != "gemini" {
+        return Err("not_chosen".into());
+    }
+    let Some(key) = secrets::get("gemini-api-key") else {
+        let _ = events.send(live::Event::Error { code: "no_key" });
+        let _ = events.send(live::Event::Closed);
+        return Ok(());
+    };
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    live.replace(Some(tx));
+    let url = coucou_assistant::live::endpoint(&key);
+    let setup = coucou_assistant::live::setup_message(&model, coucou_assistant::live::DEFAULT_VOICE, language);
+    tauri::async_runtime::spawn(live::run_session(url, setup, rx, move |e| {
+        let _ = events.send(e);
+    }));
+    Ok(())
+}
+
+/// One chunk of microphone audio (16 kHz mono 16-bit PCM) as the raw request body.
+#[tauri::command]
+fn live_audio(request: tauri::ipc::Request<'_>, live: State<'_, live::Live>) {
+    if let tauri::ipc::InvokeBody::Raw(bytes) = request.body() {
+        live.send(live::Cmd::Audio(bytes.clone()));
+    }
+}
+
+/// The mic button went down (`speaking` true) or came up.
+#[tauri::command]
+fn live_activity(live: State<'_, live::Live>, speaking: bool) {
+    live.send(if speaking { live::Cmd::Start } else { live::Cmd::End });
+}
+
+#[tauri::command]
+fn live_close(live: State<'_, live::Live>) {
+    live.replace(None);
+}
+
 #[tauri::command]
 fn chat_reset(chat: State<Chat>) {
+    // Anything still waiting for a click is dropped and logged as declined.
+    assistant::end_conversation(&chat);
     chat.reset();
 }
 
@@ -727,6 +938,9 @@ pub fn run() {
         })
         .manage(Pending::default())
         .manage(Chat::default())
+        .manage(VoiceMachine::new())
+        .manage(live::Live::default())
+        .manage(assistant::Reminders::default())
         .manage(shortcuts::Registry::default())
         .manage(recap::load())
         .invoke_handler(tauri::generate_handler![
@@ -764,7 +978,26 @@ pub fn run() {
             chat_models,
             local_connect,
             local_set_key,
+            voice_lines,
+            live_status,
+            live_open,
+            live_audio,
+            live_activity,
+            live_close,
+            voice_recognizer_status,
+            voice_transcribe,
+            open_models_folder,
+            voice_press,
+            voice_release,
+            voice_tick,
+            voice_heard,
+            voice_finished,
+            voice_failed,
+            voice_cancel,
             chat_reset,
+            assistant::assistant_pending,
+            assistant::assistant_approve,
+            assistant::assistant_deny,
             ingest_file,
             secret_present,
             secret_set,
@@ -902,6 +1135,7 @@ pub fn run() {
             pipe::start(handle.clone());
             phone_link::start_if_enabled(&handle);
             integrations::start(handle.clone());
+            assistant::start_reminders(&handle);
             spotify::sync(&handle, &loaded.active_integrations);
             shortcuts::apply(&handle, &loaded.shortcuts);
             if loaded.autostart {

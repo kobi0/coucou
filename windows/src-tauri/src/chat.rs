@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
+use coucou_assistant::{AssistantSession, PendingView, VoiceLanguage, SPOKEN_STYLE};
+
 use crate::settings::Settings;
 use crate::{claude, local_chat, openai_compat, secrets};
 
@@ -24,10 +26,20 @@ pub enum ChatContext {
     Window { app_name: String, title: String, url: Option<String> },
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatReply {
     pub text: String,
+    /// Lines written by the app, such as "A draft to … is open in your mail app". Never model text.
+    pub notices: Vec<String>,
+    /// Every confirmation card now waiting for a click (assistant.rs).
+    pub actions: Vec<PendingView>,
+}
+
+impl ChatReply {
+    pub fn text(text: impl Into<String>) -> Self {
+        Self { text: text.into(), ..Default::default() }
+    }
 }
 
 /// A model a provider offers, for the picker in the chat view.
@@ -48,6 +60,10 @@ pub struct ModelInfo {
 #[derive(Default)]
 pub struct Chat {
     inner: Mutex<Conversation>,
+    /// The ledger of assistant actions for this conversation (assistant.rs).
+    pub(crate) assistant: Mutex<AssistantSession>,
+    /// How the assistant talks (its language, spoken style), appended to the system prompt.
+    style: Mutex<String>,
 }
 
 #[derive(Default)]
@@ -72,6 +88,22 @@ pub struct Turn {
 }
 
 impl Chat {
+    /// Sets the voice the assistant answers in: its language, and a short spoken style when replies are read aloud.
+    pub fn set_style(&self, language: VoiceLanguage, speak: bool) {
+        let mut style = language.style_prompt().to_string();
+        if speak {
+            style.push_str(SPOKEN_STYLE);
+        }
+        *self.style.lock().unwrap() = style;
+    }
+
+    /// The system prompt of a turn: Mochi's instructions plus the assistant's voice.
+    pub fn prompt(&self, web_search: bool) -> String {
+        let mut prompt = system_prompt(web_search);
+        prompt.push_str(&self.style.lock().unwrap());
+        prompt
+    }
+
     pub fn reset(&self) {
         let mut c = self.inner.lock().unwrap();
         let epoch = c.epoch + 1;
@@ -207,8 +239,10 @@ pub async fn send(
     let context = context.map(checked_context).transpose()?;
     let provider = settings.chat_provider.as_str();
     let model = model_for(settings, provider);
+    chat.set_style(VoiceLanguage::from_code(&settings.voice_language), settings.speak_replies);
     if provider == ANTHROPIC || provider.is_empty() {
-        return claude::send(chat, &model, query, context).await;
+        let assist = claude::Assist { app, tools_setting: settings.assistant_tools };
+        return claude::send(chat, &model, query, context, Some(assist)).await;
     }
     if let Some(p) = openai_compat::provider(provider) {
         return openai_compat::send(chat, p, &model, query, context).await;
@@ -230,8 +264,9 @@ pub async fn send_for_phone(
     query: String,
     on_delta: impl FnMut(String),
 ) -> Result<ChatReply, String> {
+    chat.set_style(VoiceLanguage::from_code(&settings.voice_language), false);
     if provider == ANTHROPIC {
-        return claude::send(chat, model, query, None).await;
+        return claude::send(chat, model, query, None, None).await;
     }
     if let Some(p) = openai_compat::provider(provider) {
         return openai_compat::send(chat, p, model, query, None).await;

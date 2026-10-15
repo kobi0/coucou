@@ -165,7 +165,7 @@ pub async fn send(
     }
     let turn = chat.begin(p.id);
     let user = user_message(turn.first, context.as_ref(), &query);
-    let body = request_body(p, model, &chat::system_prompt(false), &turn.history, &user);
+    let body = request_body(p, model, &chat.prompt(false), &turn.history, &user);
 
     let endpoint = url(p, "chat/completions")?;
     let response = net::client(&endpoint, Duration::from_secs(90))?
@@ -186,7 +186,7 @@ pub async fn send(
 
     let plain = chat::plain_question(turn.first, context.as_ref(), &query);
     chat.commit(&turn, user, json!({ "role": "assistant", "content": text }), &plain, &text);
-    Ok(ChatReply { text })
+    Ok(ChatReply::text(text))
 }
 
 /// The provider's chat models. Only ever asked with the user's key, once they

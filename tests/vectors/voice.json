@@ -1,0 +1,594 @@
+{
+  "about": "Voice text and the hold-to-talk machine. Swift (VoiceTranscript, SpeakableText, VoiceSession), Rust (voice.rs) and TypeScript (voice/speech.ts, for speakable) must agree. Commands are written as startListening, stopListening, discard, send:<words>, hint:<phrase>.",
+  "transcript": [
+    {
+      "name": "hidden characters are removed",
+      "input": "he\u202ello",
+      "expected": "hello"
+    },
+    {
+      "name": "spaces and line breaks collapse",
+      "input": "  a \n\t b  ",
+      "expected": "a b"
+    },
+    {
+      "name": "only spaces is nothing",
+      "input": "   ",
+      "expected": null
+    },
+    {
+      "name": "only a zero-width space is nothing",
+      "input": "\u200b",
+      "expected": null
+    },
+    {
+      "name": "long text is cut",
+      "input": "a b a b a b a b a b a b a b a b a b a b ",
+      "expected": "a b a b",
+      "limit": 7
+    },
+    {
+      "name": "the cut counts characters",
+      "input": "abcdef",
+      "expected": "abc",
+      "limit": 3
+    },
+    {
+      "name": "trailing space after the cut goes",
+      "input": "ab   def",
+      "expected": "ab",
+      "limit": 3
+    },
+    {
+      "name": "the cut counts whole characters, not halves",
+      "input": "\ud83d\ude00\ud83d\ude00\ud83d\ude00",
+      "expected": "\ud83d\ude00\ud83d\ude00",
+      "limit": 2
+    },
+    {
+      "name": "short text is not cut",
+      "input": "hello",
+      "expected": "hello",
+      "limit": 100
+    },
+    {
+      "name": "empty is nothing",
+      "input": "",
+      "expected": null
+    }
+  ],
+  "speakable": [
+    {
+      "name": "marks and links",
+      "input": "Hello **world**! Here is a [link](https://x.com/a) and https://y.com/b too.",
+      "expected": {
+        "text": "Hello world! Here is a link and too.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "code blocks stay on the screen",
+      "input": "Run this:\n```bash\nls -la\n```\nThen relax",
+      "expected": {
+        "text": "Run this: Then relax.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "headings and lists become sentences",
+      "input": "# Plan\n- one\n- two\n1. three",
+      "expected": {
+        "text": "Plan. one. two. three.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "an email address is kept",
+      "input": "Write to `ada@example.com` now",
+      "expected": {
+        "text": "Write to ada@example.com now.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "only code is nothing to say",
+      "input": "```\ncode\n```",
+      "expected": null
+    },
+    {
+      "name": "an empty reply is nothing to say",
+      "input": "  \n ",
+      "expected": null
+    },
+    {
+      "name": "a long reply is cut at a sentence",
+      "input": "First sentence here. Second sentence here. Third sentence here. Fourth one.",
+      "expected": {
+        "text": "First sentence here. Second sentence here.",
+        "truncated": true
+      },
+      "limit": 45
+    },
+    {
+      "name": "a shorter limit cuts earlier",
+      "input": "First sentence here. Second sentence here. Third sentence here. Fourth one.",
+      "expected": {
+        "text": "First sentence here.",
+        "truncated": true
+      },
+      "limit": 40
+    },
+    {
+      "name": "with no sentence end it cuts at a word",
+      "input": "alpha beta gamma delta epsilon",
+      "expected": {
+        "text": "alpha beta",
+        "truncated": true
+      },
+      "limit": 14
+    },
+    {
+      "name": "hidden characters are removed",
+      "input": "Hi\u202e there",
+      "expected": {
+        "text": "Hi there.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "a sentence end in the first third is ignored",
+      "input": "A. bcdefghijklmnopqrstuvwxyz abcdefg hij",
+      "expected": {
+        "text": "A. bcdefghijklmnopqrstuvwxyz",
+        "truncated": true
+      },
+      "limit": 30
+    },
+    {
+      "name": "with no space or sentence end it cuts at the limit",
+      "input": "abcdefghijklmnopqrstuvwxyz",
+      "expected": {
+        "text": "abcdefghij",
+        "truncated": true
+      },
+      "limit": 10
+    },
+    {
+      "name": "lines become sentences",
+      "input": "One\nTwo",
+      "expected": {
+        "text": "One. Two.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "a colon ends a sentence already",
+      "input": "Note:\nbelow",
+      "expected": {
+        "text": "Note: below.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "an ellipsis ends a sentence already",
+      "input": "Wait\u2026",
+      "expected": {
+        "text": "Wait\u2026",
+        "truncated": false
+      }
+    },
+    {
+      "name": "a bracket gets a full stop",
+      "input": "(note)",
+      "expected": {
+        "text": "(note).",
+        "truncated": false
+      }
+    },
+    {
+      "name": "images are dropped",
+      "input": "![alt](http://x.com/y.png) text",
+      "expected": {
+        "text": "text.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "strike and italic marks go",
+      "input": "~~gone~~ *ok*",
+      "expected": {
+        "text": "gone ok.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "numbered lists with a bracket",
+      "input": "1) one\n2) two",
+      "expected": {
+        "text": "one. two.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "bullet dots",
+      "input": "\u2022 dot",
+      "expected": {
+        "text": "dot.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "a heading with no space after the hashes",
+      "input": "##Tight",
+      "expected": {
+        "text": "Tight.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "a bare link takes its trailing comma",
+      "input": "see http://a.b/c, ok",
+      "expected": {
+        "text": "see ok.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "inline code marks go",
+      "input": "Use `rm -rf` carefully",
+      "expected": {
+        "text": "Use rm -rf carefully.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "windows line endings",
+      "input": "a\r\nb",
+      "expected": {
+        "text": "a. b.",
+        "truncated": false
+      }
+    },
+    {
+      "name": "already short enough is not marked",
+      "input": "Short one.",
+      "expected": {
+        "text": "Short one.",
+        "truncated": false
+      },
+      "limit": 100
+    }
+  ],
+  "sessions": [
+    {
+      "name": "starts idle and ignores a release",
+      "steps": [
+        {
+          "op": "release",
+          "at": 0,
+          "expect": [],
+          "state": "idle"
+        }
+      ]
+    },
+    {
+      "name": "a press starts listening and a second press does nothing",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ],
+          "state": "listening"
+        },
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [],
+          "state": "listening"
+        }
+      ]
+    },
+    {
+      "name": "a quick tap is dropped",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "release",
+          "at": 0.2,
+          "expect": [
+            "discard"
+          ],
+          "state": "idle"
+        }
+      ]
+    },
+    {
+      "name": "a real hold sends the cleaned words",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "release",
+          "at": 1,
+          "expect": [
+            "stopListening"
+          ],
+          "state": "finishing"
+        },
+        {
+          "op": "finished",
+          "transcript": "  hello   world \n",
+          "expect": [
+            "send:hello world"
+          ],
+          "state": "idle"
+        },
+        {
+          "op": "finished",
+          "transcript": "hi",
+          "expect": [],
+          "state": "idle"
+        }
+      ]
+    },
+    {
+      "name": "nothing heard gives a hint",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "release",
+          "at": 1,
+          "expect": [
+            "stopListening"
+          ]
+        },
+        {
+          "op": "finished",
+          "transcript": null,
+          "expect": [
+            "hint:didNotCatch"
+          ],
+          "state": "idle"
+        }
+      ]
+    },
+    {
+      "name": "only hidden characters also gives a hint",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "release",
+          "at": 1,
+          "expect": [
+            "stopListening"
+          ]
+        },
+        {
+          "op": "finished",
+          "transcript": "\u200b",
+          "expect": [
+            "hint:didNotCatch"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "listening stops by itself at sixty seconds",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "tick",
+          "at": 59,
+          "expect": [],
+          "state": "listening"
+        },
+        {
+          "op": "tick",
+          "at": 60,
+          "expect": [
+            "stopListening"
+          ],
+          "state": "finishing"
+        },
+        {
+          "op": "finished",
+          "transcript": "ok",
+          "expect": [
+            "send:ok"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the recogniser can finish early",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "finished",
+          "transcript": "hi",
+          "expect": [
+            "stopListening",
+            "send:hi"
+          ],
+          "state": "idle"
+        },
+        {
+          "op": "release",
+          "at": 2,
+          "expect": []
+        }
+      ]
+    },
+    {
+      "name": "a blocked microphone says so",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "failed",
+          "kind": "micBlocked",
+          "expect": [
+            "discard",
+            "hint:micBlocked"
+          ],
+          "state": "idle"
+        }
+      ]
+    },
+    {
+      "name": "no recogniser says so",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "failed",
+          "kind": "unavailable",
+          "expect": [
+            "discard",
+            "hint:needsOnDevice"
+          ],
+          "state": "idle"
+        }
+      ]
+    },
+    {
+      "name": "any other failure asks to try again",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "failed",
+          "kind": "other",
+          "expect": [
+            "discard",
+            "hint:didNotCatch"
+          ]
+        },
+        {
+          "op": "failed",
+          "kind": "other",
+          "expect": []
+        }
+      ]
+    },
+    {
+      "name": "words so far are cleaned and cancel drops them",
+      "steps": [
+        {
+          "op": "press",
+          "at": 0,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "heard",
+          "text": " he\u202ello ",
+          "partial": "hello"
+        },
+        {
+          "op": "cancel",
+          "expect": [
+            "discard"
+          ],
+          "state": "idle",
+          "partial": ""
+        },
+        {
+          "op": "heard",
+          "text": "late",
+          "partial": ""
+        },
+        {
+          "op": "cancel",
+          "expect": []
+        }
+      ]
+    },
+    {
+      "name": "a hold well under and well over the minimum",
+      "steps": [
+        {
+          "op": "press",
+          "at": 10,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "release",
+          "at": 10.3,
+          "expect": [
+            "discard"
+          ]
+        },
+        {
+          "op": "press",
+          "at": 20,
+          "expect": [
+            "startListening"
+          ]
+        },
+        {
+          "op": "release",
+          "at": 20.5,
+          "expect": [
+            "stopListening"
+          ]
+        }
+      ]
+    }
+  ]
+}
