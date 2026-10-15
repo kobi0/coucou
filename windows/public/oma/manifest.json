@@ -1,0 +1,152 @@
+{
+ "idle": {
+  "file": "01-idle.png",
+  "bodyHeight": 169,
+  "bodyWidth": 146
+ },
+ "listening": {
+  "file": "02-listening.png",
+  "bodyHeight": 168,
+  "bodyWidth": 145
+ },
+ "thinking": {
+  "file": "03-thinking.png",
+  "bodyHeight": 169,
+  "bodyWidth": 145
+ },
+ "searching": {
+  "file": "04-searching.png",
+  "bodyHeight": 169,
+  "bodyWidth": 182
+ },
+ "speaking": {
+  "file": "05-speaking.png",
+  "bodyHeight": 170,
+  "bodyWidth": 184
+ },
+ "greeting": {
+  "file": "06-greeting.png",
+  "bodyHeight": 168,
+  "bodyWidth": 141
+ },
+ "happy": {
+  "file": "07-happy.png",
+  "bodyHeight": 173,
+  "bodyWidth": 148
+ },
+ "laughing": {
+  "file": "08-laughing.png",
+  "bodyHeight": 169,
+  "bodyWidth": 148
+ },
+ "surprised": {
+  "file": "09-surprised.png",
+  "bodyHeight": 172,
+  "bodyWidth": 148
+ },
+ "curious": {
+  "file": "10-curious.png",
+  "bodyHeight": 170,
+  "bodyWidth": 146
+ },
+ "confused": {
+  "file": "11-confused.png",
+  "bodyHeight": 168,
+  "bodyWidth": 147
+ },
+ "shy": {
+  "file": "12-shy.png",
+  "bodyHeight": 168,
+  "bodyWidth": 144
+ },
+ "sad": {
+  "file": "13-sad.png",
+  "bodyHeight": 169,
+  "bodyWidth": 149
+ },
+ "worried": {
+  "file": "14-worried.png",
+  "bodyHeight": 168,
+  "bodyWidth": 148
+ },
+ "annoyed": {
+  "file": "15-annoyed.png",
+  "bodyHeight": 170,
+  "bodyWidth": 148
+ },
+ "sleepy": {
+  "file": "16-sleepy.png",
+  "bodyHeight": 169,
+  "bodyWidth": 146
+ },
+ "sleeping": {
+  "file": "17-sleeping.png",
+  "bodyHeight": 167,
+  "bodyWidth": 147
+ },
+ "winking": {
+  "file": "18-winking.png",
+  "bodyHeight": 167,
+  "bodyWidth": 144
+ },
+ "love": {
+  "file": "19-love.png",
+  "bodyHeight": 169,
+  "bodyWidth": 144
+ },
+ "proud": {
+  "file": "20-proud.png",
+  "bodyHeight": 167,
+  "bodyWidth": 147
+ },
+ "celebrating": {
+  "file": "21-celebrating.png",
+  "bodyHeight": 166,
+  "bodyWidth": 142
+ },
+ "apologetic": {
+  "file": "22-apologetic.png",
+  "bodyHeight": 166,
+  "bodyWidth": 143
+ },
+ "error": {
+  "file": "23-error.png",
+  "bodyHeight": 167,
+  "bodyWidth": 146
+ },
+ "success": {
+  "file": "24-success.png",
+  "bodyHeight": 167,
+  "bodyWidth": 142
+ },
+ "uploading": {
+  "file": "25-uploading.png",
+  "bodyHeight": 169,
+  "bodyWidth": 169
+ },
+ "dancing": {
+  "file": "26-dancing.png",
+  "bodyHeight": 174,
+  "bodyWidth": 142
+ },
+ "sunglasses": {
+  "file": "27-sunglasses.png",
+  "bodyHeight": 173,
+  "bodyWidth": 149
+ },
+ "winter-scarf": {
+  "file": "28-winter-scarf.png",
+  "bodyHeight": 121,
+  "bodyWidth": 149
+ },
+ "party-hat": {
+  "file": "29-party-hat.png",
+  "bodyHeight": 179,
+  "bodyWidth": 146
+ },
+ "crown": {
+  "file": "30-crown.png",
+  "bodyHeight": 175,
+  "bodyWidth": 145
+ }
+}

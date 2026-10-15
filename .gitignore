@@ -19,3 +19,7 @@ DerivedData/
 # Local only (never published)
 .claude/
 _prive/
+
+# Oma's expression pictures stay out of git until where the artwork came from, and the rights to it, are
+# confirmed in docs/media/PROVENANCE.md. Remove this line then. The app falls back to the code-drawn Oma.
+windows/public/oma/*.png
