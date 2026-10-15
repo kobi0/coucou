@@ -6,7 +6,7 @@
 
 use std::sync::Mutex;
 
-use coucou_assistant::{AssistantSession, PendingView};
+use coucou_assistant::{AssistantSession, PendingView, VoiceLanguage, SPOKEN_STYLE};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -78,6 +78,13 @@ pub struct ChatReply {
 
 /// One chat turn. Returns the assistant's text, or a message the island shows
 /// in the note view.
+/// How the assistant talks: its language, and whether the reply is read aloud.
+#[derive(Clone, Copy)]
+pub struct Voice {
+    pub language: VoiceLanguage,
+    pub speak: bool,
+}
+
 pub async fn send(
     app: &AppHandle,
     chat: &Chat,
@@ -85,6 +92,7 @@ pub async fn send(
     query: String,
     context: Option<ChatContext>,
     assistant_setting: bool,
+    voice: Voice,
 ) -> Result<ChatReply, String> {
     let key = secrets::get("anthropic-api-key")
         .ok_or_else(|| "API key missing. Open settings.".to_string())?;
@@ -123,6 +131,10 @@ pub async fn send(
 
     let mut tools = vec![json!({ "type": "web_search_20260209", "name": "web_search", "max_uses": 5 })];
     let mut system = SYSTEM_PROMPT.to_string();
+    system.push_str(voice.language.style_prompt());
+    if voice.speak {
+        system.push_str(SPOKEN_STYLE);
+    }
     if tools_on {
         // The model must be answered about every tool call it made, before anything else in this message.
         let mut lead = assistant::feedback_blocks(chat);

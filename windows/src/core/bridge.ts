@@ -30,6 +30,22 @@ export interface BootInfo {
   cursorPoll: boolean;
 }
 
+export interface VoiceLines {
+  listening: string;
+  didNotCatch: string;
+  checkTheCard: string;
+  micBlocked: string;
+  needsRecognizer: string;
+  restOnScreen: string;
+  recognizerLocales: string[];
+  voiceLocales: string[];
+}
+
+/** What the hold-to-talk machine in Rust asks the page to do next. */
+export type VoiceCommand =
+  | { kind: "start" | "stop" | "discard" }
+  | { kind: "send" | "hint"; text: string };
+
 export const Bridge = {
   boot: () => call<BootInfo>("boot"),
 
@@ -82,6 +98,16 @@ export const Bridge = {
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */
+  /** The app's fixed lines in the assistant's language, and the locales to hear and speak with. */
+  voiceLines: () => call<VoiceLines>("voice_lines"),
+  voicePress: () => call<VoiceCommand[]>("voice_press"),
+  voiceRelease: () => call<VoiceCommand[]>("voice_release"),
+  voiceTick: () => call<VoiceCommand[]>("voice_tick"),
+  voiceHeard: (text: string) => call<string>("voice_heard", { text }),
+  voiceFinished: (transcript: string | null) => call<VoiceCommand[]>("voice_finished", { transcript }),
+  voiceFailed: (reason: "blocked" | "unavailable" | "failed") => call<VoiceCommand[]>("voice_failed", { reason }),
+  voiceCancel: () => call<VoiceCommand[]>("voice_cancel"),
+
   chatSend: (query: string, context: ChatContext | null) =>
     callOrThrow<ChatReply>("chat_send", { query, context }),
   chatReset: () => call<void>("chat_reset"),

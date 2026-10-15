@@ -19,6 +19,7 @@ pub mod session;
 pub mod store;
 pub mod text;
 pub mod tool;
+pub mod voice;
 
 pub use catalog::catalog;
 pub use policy::{decide, ConfirmationCard, ConfirmationLine, LineKind, PolicyDecision};
@@ -28,3 +29,4 @@ pub use store::{ApprovalChannel, ApprovalResult, PendingAction, PendingActionSto
 pub use tool::{ToolArguments, ToolCall, ToolField, ToolOrigin, ToolRisk, ToolSpec, TurnContext};
 pub use exec::{run_tool, Env, Outcome};
 pub use reminders::{Reminder, ReminderBook};
+pub use voice::{clean_transcript, VoiceCommand, VoiceFailure, VoiceLanguage, VoicePhrase, VoiceSession, VoiceState, SPOKEN_STYLE};

@@ -121,6 +121,12 @@ export interface Settings {
   character: "oma" | "mochi";
   /** Lets the chat prepare emails and set reminders, each behind a card the user must click. */
   assistantTools: boolean;
+  /** The assistant's language: English or Nigerian Pidgin. */
+  voiceLanguage: "en" | "pcm";
+  /** Reads replies aloud with a voice that stays on this computer. */
+  speakReplies: boolean;
+  /** Sends what was heard when the mic button is let go. Off puts it in the text box first. */
+  voiceAutoSend: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -137,6 +143,9 @@ export const DEFAULT_SETTINGS: Settings = {
   model: "claude-opus-5",
   character: "oma",
   assistantTools: false,
+  voiceLanguage: "en",
+  speakReplies: false,
+  voiceAutoSend: true,
 };
 
 type Listener = () => void;

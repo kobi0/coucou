@@ -243,11 +243,127 @@ async fn chat_send(
     query: String,
     context: Option<ChatContext>,
 ) -> Result<ChatReply, String> {
-    let (model, assistant_on) = {
+    let (model, assistant_on, voice) = {
         let settings = shared.settings.lock().unwrap();
-        (settings.model.clone(), settings.assistant_tools)
+        let voice = claude::Voice {
+            language: coucou_assistant::VoiceLanguage::from_code(&settings.voice_language),
+            speak: settings.speak_replies,
+        };
+        (settings.model.clone(), settings.assistant_tools, voice)
     };
-    claude::send(&app, &chat, &model, query, context, assistant_on).await
+    claude::send(&app, &chat, &model, query, context, assistant_on, voice).await
+}
+
+/// The fixed lines the app says by itself (hints while listening, and so on), in the assistant's language.
+/// They come from here, never from the model.
+#[tauri::command]
+fn voice_lines(shared: State<'_, Shared>) -> serde_json::Value {
+    use coucou_assistant::{VoiceLanguage, VoicePhrase};
+    let language = VoiceLanguage::from_code(&shared.settings.lock().unwrap().voice_language);
+    let line = |p| language.phrase(p);
+    serde_json::json!({
+        "listening": line(VoicePhrase::Listening),
+        "didNotCatch": line(VoicePhrase::DidNotCatch),
+        "checkTheCard": line(VoicePhrase::CheckTheCard),
+        "micBlocked": line(VoicePhrase::MicBlocked),
+        "needsRecognizer": line(VoicePhrase::NeedsRecognizer),
+        "restOnScreen": line(VoicePhrase::RestOnScreen),
+        "recognizerLocales": language.recognizer_locales(),
+        "voiceLocales": language.voice_locales(),
+    })
+}
+
+/// The hold-to-talk state machine lives here, once, so the rules (a tap is dropped, a minute is the longest,
+/// silence is a hint and never a message) are the tested ones in coucou-assistant.
+struct VoiceMachine {
+    session: Mutex<coucou_assistant::VoiceSession>,
+    clock: std::time::Instant,
+}
+
+impl VoiceMachine {
+    fn new() -> Self {
+        Self { session: Mutex::new(Default::default()), clock: std::time::Instant::now() }
+    }
+
+    fn now(&self) -> f64 {
+        self.clock.elapsed().as_secs_f64()
+    }
+
+    /// Commands for the page, with every hint already in the assistant's language.
+    fn commands(
+        &self,
+        shared: &Shared,
+        commands: Vec<coucou_assistant::VoiceCommand>,
+    ) -> Vec<serde_json::Value> {
+        use coucou_assistant::VoiceCommand as C;
+        let language =
+            coucou_assistant::VoiceLanguage::from_code(&shared.settings.lock().unwrap().voice_language);
+        commands
+            .into_iter()
+            .map(|c| match c {
+                C::StartListening => serde_json::json!({ "kind": "start" }),
+                C::StopListening => serde_json::json!({ "kind": "stop" }),
+                C::Discard => serde_json::json!({ "kind": "discard" }),
+                C::Send(text) => serde_json::json!({ "kind": "send", "text": text }),
+                C::Hint(phrase) => serde_json::json!({ "kind": "hint", "text": language.phrase(phrase) }),
+            })
+            .collect()
+    }
+}
+
+#[tauri::command]
+fn voice_press(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().press(voice.now());
+    voice.commands(&shared, out)
+}
+
+#[tauri::command]
+fn voice_release(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().release(voice.now());
+    voice.commands(&shared, out)
+}
+
+#[tauri::command]
+fn voice_tick(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().tick(voice.now());
+    voice.commands(&shared, out)
+}
+
+/// The words so far. Returns them cleaned, for the text box.
+#[tauri::command]
+fn voice_heard(voice: State<'_, VoiceMachine>, text: String) -> String {
+    let mut session = voice.session.lock().unwrap();
+    session.heard(&text);
+    session.partial().to_string()
+}
+
+#[tauri::command]
+fn voice_finished(
+    shared: State<'_, Shared>,
+    voice: State<'_, VoiceMachine>,
+    transcript: Option<String>,
+) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().finished(transcript.as_deref());
+    voice.commands(&shared, out)
+}
+
+/// `reason` is "blocked", "unavailable" or anything else.
+#[tauri::command]
+fn voice_failed(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>, reason: String) -> Vec<serde_json::Value> {
+    use coucou_assistant::VoiceFailure as F;
+    let failure = match reason.as_str() {
+        "blocked" => F::MicBlocked,
+        "unavailable" => F::Unavailable,
+        _ => F::Other,
+    };
+    let out = voice.session.lock().unwrap().failed(failure);
+    voice.commands(&shared, out)
+}
+
+#[tauri::command]
+fn voice_cancel(shared: State<'_, Shared>, voice: State<'_, VoiceMachine>) -> Vec<serde_json::Value> {
+    let out = voice.session.lock().unwrap().cancel();
+    voice.commands(&shared, out)
 }
 
 #[tauri::command]
@@ -381,6 +497,7 @@ pub fn run() {
         })
         .manage(Pending::default())
         .manage(Chat::default())
+        .manage(VoiceMachine::new())
         .manage(assistant::Reminders::default())
         .invoke_handler(tauri::generate_handler![
             boot,
@@ -400,6 +517,14 @@ pub fn run() {
             approval_decline,
             log_line,
             chat_send,
+            voice_lines,
+            voice_press,
+            voice_release,
+            voice_tick,
+            voice_heard,
+            voice_finished,
+            voice_failed,
+            voice_cancel,
             chat_reset,
             assistant::assistant_pending,
             assistant::assistant_approve,

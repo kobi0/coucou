@@ -26,6 +26,23 @@ pub struct Settings {
     /// Lets the chat prepare emails and set reminders, each behind a card the user must click. Off by default.
     #[serde(default)]
     pub assistant_tools: bool,
+    /// The assistant's language: "en" or "pcm" (Nigerian Pidgin).
+    #[serde(default = "default_voice_language")]
+    pub voice_language: String,
+    /// Reads replies aloud with a voice on this computer. Off by default.
+    #[serde(default)]
+    pub speak_replies: bool,
+    /// Sends what was heard as soon as the mic button is let go. Off puts it in the text box to check first.
+    #[serde(default = "yes")]
+    pub voice_auto_send: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn default_voice_language() -> String {
+    "en".to_string()
 }
 
 fn default_character() -> String {
@@ -55,6 +72,9 @@ impl Default for Settings {
             model: default_model(),
             character: default_character(),
             assistant_tools: false,
+            voice_language: default_voice_language(),
+            speak_replies: false,
+            voice_auto_send: true,
         }
     }
 }

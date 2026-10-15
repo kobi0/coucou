@@ -7,6 +7,8 @@ import { Bridge, type ChatContext } from "../core/bridge";
 import { Sound } from "../core/sound";
 import { State, type ChatMessage } from "../core/state";
 import { buildActionCard } from "./action-card";
+import { Hearing, Speaker } from "../voice/speech";
+import { createVoiceFlow, speakReply } from "../voice/flow";
 import type { ViewHost } from "./views";
 
 let nextId = 1;
@@ -47,7 +49,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     spellcheck: "false",
   }) as HTMLInputElement;
   const send = h("button", { class: "send-btn", title: "Send" }, svg(ICONS.arrowUp, 11));
-  const bar = h("div", { class: "chat-bar" }, input, send);
+  // Hold to talk. Hidden until a recogniser is plugged in (voice/speech.ts), so there is never a dead button.
+  const mic = h("button", { class: "mic-btn", title: "Hold to talk" }, svg(ICONS.mic, 12));
+  mic.style.display = "none";
+  const bar = h("div", { class: "chat-bar" }, input, mic, send);
 
   // Lines written by the app (never by the model) go in as assistant messages.
   function say(lines: string[]) {
@@ -67,6 +72,25 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     h("div", { class: "card wash chat-card" }, h("div", { class: "chat-body" }, chipRow, log, bar, actionCard.el)),
   );
   (el.querySelector(".card") as HTMLElement).style.setProperty("--wash", "rgba(99,102,241,0.5)");
+
+  const voice = createVoiceFlow({
+    setDraft: (text) => { input.value = text; },
+    send: (text) => { input.value = text; void submit(); },
+    say: (line) => { say([line]); State.notify(); onHeightChange(); },
+    onListening: (on) => {
+      mic.classList.toggle("on", on);
+      input.placeholder = on ? voice.listeningText : "Ask me anything…";
+    },
+  });
+  mic.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the text box
+  mic.addEventListener("pointerdown", (e) => {
+    if (!(e as PointerEvent).isTrusted) return;
+    mic.setPointerCapture((e as PointerEvent).pointerId);
+    void voice.press();
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    mic.addEventListener(type, () => void voice.release());
+  }
 
   let sending = false;
   let renderedCount = -1;
@@ -100,6 +124,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     if (!query || sending) return;
     input.value = "";
     sending = true;
+    Speaker.stop();
     Sound.play("send");
 
     State.chatHistory.push({ id: nextId++, role: "user", content: query });
@@ -118,6 +143,7 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
       State.pendingActions = reply.actions;
       State.stateOverride = null;
       Sound.play("finish");
+      void speakReply(reply.text, reply.actions.length > 0);
     } catch (err) {
       State.stateOverride = null;
       State.noteMessage = String(err).replace(/^Error:\s*/, "");
@@ -161,7 +187,10 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         log.scrollTop = log.scrollHeight;
       }
 
-      input.placeholder = State.chatHistory.length === 0 ? "Ask me anything…" : "Continue…";
+      mic.style.display = Hearing.get() ? "" : "none";
+      if (!mic.classList.contains("on")) {
+        input.placeholder = State.chatHistory.length === 0 ? "Ask me anything…" : "Continue…";
+      }
       input.disabled = sending;
 
       const nowSeconds = Date.now() / 1000;

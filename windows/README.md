@@ -77,6 +77,22 @@ only ask whether a key exists. Same for every integration key.
 No telemetry. The only network requests Coucou makes are to the services you
 configure yourself.
 
+### Voice and language
+
+**Settings → Assistant language** switches the chat between English and Nigerian
+Pidgin (a first draft that still needs a native speaker's review). Tool details such
+as email addresses and times stay exact in either.
+
+- **Read replies aloud** uses a voice installed on this computer. A voice that
+  sends text to a server (the "online" or "natural" ones Edge also lists) is never
+  used. If no local voice matches, nothing is said.
+- **Hold to talk** is built (hold the mic, let go, the words go to the chat box or
+  are sent, as you choose), but the mic stays hidden until a speech recogniser is
+  plugged in. None ships yet. What is heard is only text: it can never approve an
+  action.
+- The hold-to-talk rules (a tap is dropped, a minute is the longest, silence gives a
+  hint, never a message) are in `assistant/src/voice.rs`, tested, and match the Mac.
+
 ### Assistant actions (off by default)
 
 **Settings → Assistant actions** lets the chat prepare an email draft and set a

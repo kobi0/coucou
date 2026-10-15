@@ -389,6 +389,17 @@ function generalSection(): HTMLElement {
     void save();
   });
 
+  const language = h("select", {}) as HTMLSelectElement;
+  language.append(
+    h("option", { value: "en", text: "English" }),
+    h("option", { value: "pcm", text: "Nigerian Pidgin" }),
+  );
+  language.value = settings.voiceLanguage;
+  language.addEventListener("change", () => {
+    settings.voiceLanguage = language.value as Settings["voiceLanguage"];
+    void save();
+  });
+
   const screen = h("select", {}) as HTMLSelectElement;
   screen.append(
     h("option", { value: "primary", text: "Main display" }),
@@ -417,6 +428,23 @@ function generalSection(): HTMLElement {
     h("div", { class: "row" },
       h("label", { text: "Character" }),
       character,
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Assistant language" }),
+      language,
+      h("span", { class: "hint", text: "How the chat talks to you. Tool details such as email addresses stay exact." }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Read replies aloud" }),
+      toggle(settings.speakReplies, (v) => { settings.speakReplies = v; void save(); }),
+      h("span", {
+        class: "hint",
+        text: "Uses a voice installed on this computer. Online voices are never used, so your text stays here.",
+      }),
+    ),
+    h("div", { class: "row" },
+      h("label", { text: "Send when I let go of the mic" }),
+      toggle(settings.voiceAutoSend, (v) => { settings.voiceAutoSend = v; void save(); }),
     ),
     h("div", { class: "row" },
       h("label", { text: "Island lives on" }),
